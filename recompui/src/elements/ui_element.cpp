@@ -1,4 +1,5 @@
 #include "RmlUi/Core/StringUtilities.h"
+#include "RmlUi/Core/StyleSheetSpecification.h"
 
 #include "overloaded.h"
 #include "recompui.h"
@@ -80,6 +81,24 @@ void Element::set_property(Rml::PropertyId property_id, const Rml::Property &pro
 
     base->SetProperty(property_id, property);
     Style::set_property(property_id, property);
+}
+
+bool Element::animate_property(Rml::PropertyId property_id, const Rml::Property& target_value, float duration, Rml::Tween tween) {
+    assert(base != nullptr);
+
+    // RmlUi transitions are applied during stylesheet resolution, so direct
+    // SetProperty calls from programmatic elements need to use the animation API
+    // when they want the same eased property updates.
+    const Rml::String& property_name = Rml::StyleSheetSpecification::GetPropertyName(property_id);
+    if (property_name.empty()) {
+        return false;
+    }
+
+    bool animated = base->Animate(property_name, target_value, duration, tween);
+    if (animated) {
+        Style::set_property(property_id, target_value);
+    }
+    return animated;
 }
 
 void Element::register_event_listeners(uint32_t events_enabled) {

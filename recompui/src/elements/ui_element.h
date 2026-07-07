@@ -160,6 +160,7 @@ public:
     const std::string& get_id() { return id; }
     bool is_pseudo_class_set(Rml::String pseudo_class);
     void scroll_into_view(bool smooth = false);
+    bool animate_property(Rml::PropertyId property_id, const Rml::Property& target_value, float duration, Rml::Tween tween = Rml::Tween{});
 
     void set_debug_id(const std::string& new_debug_id) { debug_id = new_debug_id; }
     const std::string& get_debug_id() const { return debug_id; }
