@@ -1,6 +1,7 @@
 #ifndef _RECOMP_UI_CONFIG_H_
 #define _RECOMP_UI_CONFIG_H_
 
+#include <functional>
 #include <vector>
 
 #include "librecomp/config.hpp"
@@ -136,6 +137,8 @@ namespace recompui {
         void set_tab(const std::string &id);
         void open();
         bool close();
+
+        void set_modal_on_close_callback(std::function<void()> callback);
 
         // Get the config modal instance. nullptr until created with init_modal() internally.
         // Will throw an error if it hasn't been created yet.

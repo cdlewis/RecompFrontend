@@ -2,6 +2,7 @@
 
 #include "ui_element.h"
 #include "ui_label.h"
+#include "ui_frontend_theme.h"
 
 namespace recompui {
 
@@ -18,6 +19,7 @@ namespace recompui {
         on_change_tab_callback on_select_tab;
         Element *label = nullptr;
         Element *indicator = nullptr;
+        Color selected_indicator_color = theme::get_theme_color(theme::color::BorderSolid);
 
         bool visible = true;
 
@@ -29,6 +31,7 @@ namespace recompui {
         virtual void process_event(const Event &e) override;
     public:
         Tab(ResourceId rid, Element *parent, int tab_index, std::string_view text, on_change_tab_callback on_select_tab);
+        void apply_theme(const theme::TabTheme &tab_theme);
         void set_selected(bool selected);
         void set_visible(bool is_visible);
         bool get_visible() { return visible; }
@@ -49,6 +52,7 @@ namespace recompui {
         void focus_on_active_tab();
         Element *get_active_tab_element() const { return active_tab >= 0 && active_tab < static_cast<int>(tabs.size()) ? tabs[active_tab] : nullptr; };
         int get_active_tab() const { return active_tab; }
+        void apply_theme(const theme::TabTheme &tab_theme);
         void set_tab_visible(int tab_index, bool is_visible);
         int get_next_tab_in_direction(int index, int direction);
     };

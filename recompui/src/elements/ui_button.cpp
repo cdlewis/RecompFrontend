@@ -1,4 +1,5 @@
 #include "ui_button.h"
+#include "ui_frontend_theme.h"
 #include "ui_label.h"
 #include "ui_pseudo_border.h"
 
@@ -129,11 +130,27 @@ namespace recompui {
         style = new_style;
         switch (style) {
         case ButtonStyle::Primary: {
-            apply_theme_style(theme::color::Primary);
+            if (!apply_button_palette(
+                    *this,
+                    hover_style,
+                    focus_style,
+                    disabled_style,
+                    hover_disabled_style,
+                    theme::ButtonPalette::Primary)) {
+                apply_theme_style(theme::color::Primary);
+            }
             break;
         }
         case ButtonStyle::Secondary: {
-            apply_theme_style(theme::color::Secondary);
+            if (!apply_button_palette(
+                    *this,
+                    hover_style,
+                    focus_style,
+                    disabled_style,
+                    hover_disabled_style,
+                    theme::ButtonPalette::Secondary)) {
+                apply_theme_style(theme::color::Secondary);
+            }
             break;
         }
         case ButtonStyle::Tertiary: {
@@ -194,6 +211,54 @@ namespace recompui {
         add_style(&focus_style, focus_state);
         add_style(&disabled_style, disabled_state);
         add_style(&hover_disabled_style, { hover_state, disabled_state });
+    }
+
+    bool apply_button_palette(
+        Element &element,
+        Style &hover_style,
+        Style &focus_style,
+        Style &disabled_style,
+        Style &hover_disabled_style,
+        theme::ButtonPalette palette_id
+    ) {
+        const auto &frontend_theme = theme::get_frontend_theme();
+        const auto &palette = palette_id == theme::ButtonPalette::Primary
+            ? frontend_theme.primary_button
+            : frontend_theme.secondary_button;
+        if (!palette) {
+            return false;
+        }
+
+        element.set_color(palette->text);
+        element.set_border_color(palette->border);
+        element.set_background_color(palette->background);
+
+        hover_style.set_color(palette->active_text);
+        hover_style.set_border_color(palette->active_border);
+        hover_style.set_background_color(palette->active_background);
+
+        focus_style.set_color(palette->active_text);
+        focus_style.set_border_color(palette->active_border);
+        focus_style.set_background_color(palette->active_background);
+
+        Color disabled_border = palette->border;
+        disabled_border.a /= 4;
+        Color disabled_background = palette->background;
+        disabled_background.a /= 4;
+
+        disabled_style.set_color(palette->disabled_text);
+        disabled_style.set_border_color(disabled_border);
+        disabled_style.set_background_color(disabled_background);
+
+        hover_disabled_style.set_color(palette->disabled_text);
+        hover_disabled_style.set_border_color(disabled_border);
+        hover_disabled_style.set_background_color(disabled_background);
+
+        element.add_style(&hover_style, hover_state);
+        element.add_style(&focus_style, focus_state);
+        element.add_style(&disabled_style, disabled_state);
+        element.add_style(&hover_disabled_style, { hover_state, disabled_state });
+        return true;
     }
 
     void Button::set_text(std::string_view text) {

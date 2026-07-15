@@ -6,14 +6,17 @@
 #include "elements/ui_document.h"
 #include "elements/ui_label.h"
 #include "elements/ui_button.h"
+#include "elements/ui_frontend_theme.h"
 
 struct {
-    recompui::ContextId ui_context;
-    recompui::Label* prompt_header;
-    recompui::Label* prompt_label;
-    recompui::Element* prompt_controls;
-    recompui::Button* confirm_button;
-    recompui::Button* cancel_button;
+    recompui::ContextId ui_context = recompui::ContextId::null();
+    recompui::Element* prompt_overlay = nullptr;
+    recompui::Element* prompt_content = nullptr;
+    recompui::Label* prompt_header = nullptr;
+    recompui::Label* prompt_label = nullptr;
+    recompui::Element* prompt_controls = nullptr;
+    recompui::Button* confirm_button = nullptr;
+    recompui::Button* cancel_button = nullptr;
     std::function<void()> confirm_action;
     std::function<void()> cancel_action;
     std::mutex mutex;
@@ -46,6 +49,27 @@ void run_cancel_callback() {
     // or just remove it as the usage of the prompt can change now
 }
 
+void apply_prompt_button_style(recompui::Button *button) {
+    const auto &style = recompui::theme::get_frontend_theme().prompt.button;
+    button->apply_style(style.normal);
+    button->get_hover_style()->apply_style(style.hover);
+    button->get_focus_style()->apply_style(style.focus);
+    button->get_disabled_style()->apply_style(style.disabled);
+    button->apply_styles();
+}
+
+void apply_prompt_theme() {
+    if (prompt_state.prompt_overlay == nullptr) {
+        return;
+    }
+    const auto &style = recompui::theme::get_frontend_theme().prompt;
+    prompt_state.prompt_overlay->apply_style(style.overlay);
+    prompt_state.prompt_content->apply_style(style.content);
+    prompt_state.prompt_controls->apply_style(style.controls);
+    apply_prompt_button_style(prompt_state.confirm_button);
+    apply_prompt_button_style(prompt_state.cancel_button);
+}
+
 void recompui::init_prompt_context() {
     ContextId context = create_context();
 
@@ -60,13 +84,13 @@ void recompui::init_prompt_context() {
     window->set_flex_direction(FlexDirection::Column);
     window->set_background_color(theme::color::Transparent);
 
-    Element* prompt_overlay = context.create_element<Element>(window);
-    prompt_overlay->set_background_color(theme::color::BGOverlay);
-    prompt_overlay->set_position(Position::Absolute);
-    prompt_overlay->set_top(0);
-    prompt_overlay->set_right(0);
-    prompt_overlay->set_bottom(0);
-    prompt_overlay->set_left(0);
+    prompt_state.prompt_overlay = context.create_element<Element>(window);
+    prompt_state.prompt_overlay->set_background_color(theme::color::BGOverlay);
+    prompt_state.prompt_overlay->set_position(Position::Absolute);
+    prompt_state.prompt_overlay->set_top(0);
+    prompt_state.prompt_overlay->set_right(0);
+    prompt_state.prompt_overlay->set_bottom(0);
+    prompt_state.prompt_overlay->set_left(0);
 
     Element* prompt_content_wrapper = context.create_element<Element>(window);
     prompt_content_wrapper->set_display(Display::Flex);
@@ -78,29 +102,30 @@ void recompui::init_prompt_context() {
     prompt_content_wrapper->set_align_items(AlignItems::Center);
     prompt_content_wrapper->set_justify_content(JustifyContent::Center);
 
-    Element* prompt_content = context.create_element<Element>(prompt_content_wrapper);
-    prompt_content->set_display(Display::Flex);
-    prompt_content->set_position(Position::Relative);
-    prompt_content->set_flex(1.0f, 1.0f);
-    prompt_content->set_flex_basis(100, Unit::Percent);
-    prompt_content->set_flex_direction(FlexDirection::Column);
-    prompt_content->set_width(100, Unit::Percent);
-    prompt_content->set_max_width(700, Unit::Dp);
-    prompt_content->set_height_auto();
-    prompt_content->set_margin_auto();
-    prompt_content->set_border_width(theme::border::width, Unit::Dp);
-    prompt_content->set_border_radius(theme::border::radius_lg, Unit::Dp);
-    prompt_content->set_border_color(theme::color::WhiteA20);
-    prompt_content->set_background_color(theme::color::ModalOverlay);
+    prompt_state.prompt_content = context.create_element<Element>(prompt_content_wrapper);
+    prompt_state.prompt_content->set_display(Display::Flex);
+    prompt_state.prompt_content->set_position(Position::Relative);
+    prompt_state.prompt_content->set_flex(1.0f, 1.0f);
+    prompt_state.prompt_content->set_flex_basis(100, Unit::Percent);
+    prompt_state.prompt_content->set_flex_direction(FlexDirection::Column);
+    prompt_state.prompt_content->set_width(100, Unit::Percent);
+    prompt_state.prompt_content->set_max_width(700, Unit::Dp);
+    prompt_state.prompt_content->set_height_auto();
+    prompt_state.prompt_content->set_margin_auto();
+    prompt_state.prompt_content->set_border_width(theme::border::width, Unit::Dp);
+    prompt_state.prompt_content->set_border_radius(theme::border::radius_lg, Unit::Dp);
+    prompt_state.prompt_content->set_border_color(theme::color::WhiteA20);
+    prompt_state.prompt_content->set_background_color(theme::color::ModalOverlay);
+    prompt_state.prompt_content->set_overflow(Overflow::Hidden);
     
-    prompt_state.prompt_header = context.create_element<Label>(prompt_content, "", LabelStyle::Large);
+    prompt_state.prompt_header = context.create_element<Label>(prompt_state.prompt_content, "", LabelStyle::Large);
     prompt_state.prompt_header->set_margin(24, Unit::Dp);
 
-    prompt_state.prompt_label = context.create_element<Label>(prompt_content, "", LabelStyle::Small);
+    prompt_state.prompt_label = context.create_element<Label>(prompt_state.prompt_content, "", LabelStyle::Small);
     prompt_state.prompt_label->set_margin(24, Unit::Dp);
     prompt_state.prompt_label->set_margin_top(0);
     
-    prompt_state.prompt_controls = context.create_element<Element>(prompt_content);
+    prompt_state.prompt_controls = context.create_element<Element>(prompt_state.prompt_content);
     
     prompt_state.prompt_controls->set_display(Display::Flex);
     prompt_state.prompt_controls->set_flex_direction(FlexDirection::Row);
@@ -110,6 +135,8 @@ void recompui::init_prompt_context() {
     prompt_state.prompt_controls->set_padding(24, Unit::Dp);
     prompt_state.prompt_controls->set_border_top_width(theme::border::width, Unit::Dp);
     prompt_state.prompt_controls->set_border_top_color(theme::color::BorderSoft);
+    prompt_state.prompt_controls->set_border_bottom_left_radius(theme::border::radius_lg, Unit::Dp);
+    prompt_state.prompt_controls->set_border_bottom_right_radius(theme::border::radius_lg, Unit::Dp);
 
     prompt_state.confirm_button = context.create_element<Button>(prompt_state.prompt_controls, "", ButtonStyle::Success);
     prompt_state.confirm_button->set_min_width(185.0f, Unit::Dp);
@@ -118,6 +145,8 @@ void recompui::init_prompt_context() {
     prompt_state.cancel_button = context.create_element<Button>(prompt_state.prompt_controls, "", ButtonStyle::Danger);
     prompt_state.cancel_button->set_min_width(185.0f, Unit::Dp);
     prompt_state.cancel_button->add_pressed_callback(run_cancel_callback);
+
+    apply_prompt_theme();
 
     context.close();
 }
@@ -172,6 +201,8 @@ void recompui::open_choice_prompt(
     prompt_state.cancel_action = cancel_action;
     prompt_state.confirm_button->apply_button_style(confirm_variant);
     prompt_state.cancel_button->apply_button_style(cancel_variant);
+    apply_prompt_button_style(prompt_state.confirm_button);
+    apply_prompt_button_style(prompt_state.cancel_button);
 
     prompt_state.ui_context.close();
 
@@ -207,6 +238,7 @@ void recompui::open_info_prompt(
     prompt_state.cancel_action = okay_action;
 
     prompt_state.cancel_button->apply_button_style(okay_variant);
+    apply_prompt_button_style(prompt_state.cancel_button);
 
     prompt_state.ui_context.close();
 

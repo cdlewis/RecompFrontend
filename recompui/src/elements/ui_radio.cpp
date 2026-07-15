@@ -21,9 +21,9 @@ namespace recompui {
         set_text_transform(TextTransform::Uppercase);
         set_height_auto();
         set_opacity(1.0f);
-        hover_style.set_color(theme::color::WhiteA80);
-        checked_style.set_color(theme::color::White);
-        checked_style.set_border_color(theme::color::Text);
+        hover_style.set_color(theme::color::TextActive);
+        checked_style.set_color(theme::color::TextInactive);
+        checked_style.set_border_color(theme::color::TextInactive);
         pulsing_style.set_border_color(theme::color::SecondaryA80);
         disabled_style.set_color(theme::color::TextInactive);
         disabled_style.set_opacity(0.5f);

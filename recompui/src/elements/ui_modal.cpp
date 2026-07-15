@@ -1,6 +1,8 @@
 #include "ui_modal.h"
 #include "ui_element.h"
 #include "ui_document.h"
+#include "ui_svg.h"
+#include "ui_frontend_theme.h"
 #include "recompinput/recompinput.h"
 #include "recompinput/profiles.h"
 
@@ -85,6 +87,7 @@ Modal::Modal(
     modal_element->set_border_radius(theme::border::radius_lg);
     modal_element->set_border_color(theme::color::Border);
     modal_element->set_background_color(theme::color::ModalOverlay);
+    modal_element->set_overflow(Overflow::Hidden);
     modal_element->set_as_navigation_container(NavigationType::Vertical);
     modal_element->set_nav_wrapping(true);
 
@@ -104,6 +107,13 @@ Modal::Modal(
     body->set_flex_basis_auto();
     body->set_flex_direction(FlexDirection::Row);
     body->set_width(100.0f, Unit::Percent);
+    body->set_border_bottom_left_radius(theme::border::radius_lg);
+    body->set_border_bottom_right_radius(theme::border::radius_lg);
+    const auto &modal_theme = theme::get_frontend_theme().modal;
+    modal_overlay->apply_style(modal_theme.overlay);
+    modal_element->apply_style(modal_theme.frame);
+    header->apply_style(modal_theme.header);
+    body->apply_style(modal_theme.body);
 
     set_menu_action_callback(MenuAction::Toggle, [this]() {
         this->close();
@@ -410,6 +420,9 @@ void TabbedModal::initialize_tab(TabContext &tab_context) {
         });
     }
     tabs->add_tab(tab_context.name);
+    if (const auto &tab_theme = theme::get_frontend_theme().modal.tabs) {
+        tabs->apply_theme(*tab_theme);
+    }
 }
 
 void TabbedModal::add_tab(TabContext &&tab_context) {

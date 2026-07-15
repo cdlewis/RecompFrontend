@@ -659,6 +659,10 @@ void recompui::set_cont_active(bool active) {
     ui_state->cont_is_active = active;
 }
 
+bool recompui::is_mouse_active() {
+    return ui_state->mouse_is_active;
+}
+
 void recompui::activate_mouse() {
     ui_state->update_primary_input(true, false);
     ui_state->update_focus(true, false);

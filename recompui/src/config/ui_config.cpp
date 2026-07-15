@@ -15,6 +15,7 @@ struct PendingTab {
     bool hidden = false;
 };
 static std::vector<PendingTab> pending_tabs;
+static std::function<void()> modal_on_close_callback = nullptr;
 static bool loaded_configs = false;
 
 namespace recompui {
@@ -167,6 +168,10 @@ namespace recompui {
             config::close();
         });
 
+        if (modal_on_close_callback) {
+            config_modal->set_on_close_callback(modal_on_close_callback);
+        }
+
         config_modal->modal_root_context.close();
     }
 
@@ -199,6 +204,14 @@ namespace recompui {
         }
 
         return config_modal->close();
+    }
+
+    void config::set_modal_on_close_callback(std::function<void()> callback) {
+        if (config_modal != nullptr) {
+            throw std::runtime_error("Config modal close callback must be set before the modal is initialized.");
+        }
+
+        modal_on_close_callback = std::move(callback);
     }
 
     recompui::TabbedModal *config::get_config_modal() {

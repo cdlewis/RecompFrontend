@@ -1,4 +1,5 @@
 #include "ui_binding_button.h"
+#include "ui_frontend_theme.h"
 #include "ui_theme.h"
 #include "recompui.h"
 #include <ultramodern/ultramodern.hpp>
@@ -53,6 +54,11 @@ namespace recompui {
         recording_edge = context.create_element<Element>(recording_parent);
         recording_svg = context.create_element<Svg>(recording_edge, "icons/RecordBorder.svg");
         apply_recording_style();
+        const auto &binding_style = theme::get_frontend_theme().controls.binding_button;
+        apply_style(binding_style.normal);
+        hover_style.apply_style(binding_style.hover);
+        focus_style.apply_style(binding_style.focus);
+        apply_styles();
     }
 
     void BindingButton::apply_sizing_styling(Element *el) {

@@ -66,6 +66,7 @@ namespace recompui {
         svg = context.create_element<Svg>(this, svg_src);
         svg->set_width(icon_size);
         svg->set_color(theme::color::TextDim);
+        svg->set_image_color(theme::color::TextDim);
 
         apply_button_style(style);
 
@@ -86,6 +87,7 @@ namespace recompui {
                 bool hover_active = std::get<EventHover>(e.variant).active && is_enabled();
                 set_style_enabled(hover_state, hover_active);
                 svg->set_color(hover_active ? theme::color::Text : theme::color::TextDim);
+                svg->set_image_color(hover_active ? theme::color::Text : theme::color::TextDim);
             }
             break;
         case EventType::Enable:
@@ -96,11 +98,13 @@ namespace recompui {
                     set_cursor(Cursor::Pointer);
                     set_focusable(true);
                     svg->set_color(theme::color::TextDim);
+                    svg->set_image_color(theme::color::TextDim);
                 }
                 else {
                     set_cursor(Cursor::None);
                     set_focusable(false);
                     svg->set_color(theme::color::TextDim);
+                    svg->set_image_color(theme::color::TextDim);
                 }
             }
             break;
@@ -109,6 +113,7 @@ namespace recompui {
                 bool focus_active = std::get<EventFocus>(e.variant).active;
                 set_style_enabled(focus_state, focus_active);
                 svg->set_color(focus_active ? theme::color::Text : theme::color::TextDim);
+                svg->set_image_color(focus_active ? theme::color::Text : theme::color::TextDim);
             }
             break;
         case EventType::Update:
@@ -127,11 +132,27 @@ namespace recompui {
         style = new_style;
         switch (style) {
         case ButtonStyle::Primary: {
-            apply_theme_style(theme::color::Primary);
+            if (!apply_button_palette(
+                    *this,
+                    hover_style,
+                    focus_style,
+                    disabled_style,
+                    hover_disabled_style,
+                    theme::ButtonPalette::Primary)) {
+                apply_theme_style(theme::color::Primary);
+            }
             break;
         }
         case ButtonStyle::Secondary: {
-            apply_theme_style(theme::color::Secondary);
+            if (!apply_button_palette(
+                    *this,
+                    hover_style,
+                    focus_style,
+                    disabled_style,
+                    hover_disabled_style,
+                    theme::ButtonPalette::Secondary)) {
+                apply_theme_style(theme::color::Secondary);
+            }
             break;
         }
         case ButtonStyle::Tertiary: {
@@ -189,4 +210,5 @@ namespace recompui {
         add_style(&disabled_style, disabled_state);
         add_style(&hover_disabled_style, { hover_state, disabled_state });
     }
+
 };

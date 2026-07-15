@@ -5,6 +5,12 @@
 
 namespace recompui {
 
+    void Style::apply_style(const Style &style) {
+        for (const auto &[property_id, property] : style.property_map) {
+            set_property(property_id, property);
+        }
+    }
+
     static Rml::Unit to_rml(Unit unit) {
         switch (unit) {
         case Unit::Px:

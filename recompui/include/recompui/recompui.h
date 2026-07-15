@@ -100,6 +100,7 @@ namespace recompui {
     void update_supported_options();
 
     bool get_cont_active(void);
+    bool is_mouse_active();
     void set_cont_active(bool active);
     void activate_mouse();
 

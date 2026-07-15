@@ -31,6 +31,7 @@ namespace recompui {
         Style(ResourceId rid);
         Style() : Style(ResourceId::null()) {}
         virtual ~Style();
+        void apply_style(const Style &style);
         void set_visibility(Visibility visibility);
         void set_position(Position position);
         void set_left(float left, Unit unit = Unit::Dp);

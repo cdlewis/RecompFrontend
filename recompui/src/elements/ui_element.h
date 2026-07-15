@@ -80,7 +80,7 @@ private:
 
     void add_child(Element *child);
     void register_event_listeners(uint32_t events_enabled);
-    void apply_style(Style *style);
+    void apply_style(const Style *style);
     void propagate_disabled(bool disabled);
     void handle_event(const Event &e);
     void set_id(const std::string& new_id);
@@ -132,6 +132,7 @@ public:
     void set_style_enabled(std::string_view style_name, bool enabled);
     bool is_style_enabled(std::string_view style_name);
     void apply_styles();
+    void apply_style(const Style &style) { apply_style(&style); }
     bool is_element() override { return true; }
     float get_absolute_left();
     float get_absolute_top();

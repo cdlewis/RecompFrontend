@@ -43,6 +43,7 @@ namespace recompui {
     const ToggleColorTheme &Toggle::get_toggle_color_theme_unchecked() {
         static const ToggleColorTheme color_theme = {
             .border = theme::color::BW50,
+            .bg = theme::color::Transparent,
             .bg_hover = theme::color::WhiteA5,
             .floater = theme::color::TextDim,
             .floater_disabled = theme::color::TextDim
@@ -52,8 +53,21 @@ namespace recompui {
     }
 
     const ToggleColorTheme &Toggle::get_toggle_color_theme_checked() {
+        if (color_preset == ToggleColorPreset::Filled) {
+            static const ToggleColorTheme color_theme = {
+                .border = theme::color::BorderSolid,
+                .bg = theme::color::Elevated,
+                .bg_hover = theme::color::ElevatedSoft,
+                .floater = theme::color::White,
+                .floater_disabled = theme::color::White
+            };
+
+            return color_theme;
+        }
+
         static const ToggleColorTheme color_theme = {
             .border = theme::color::Primary,
+            .bg = theme::color::Transparent,
             .bg_hover = theme::color::PrimaryA30,
             .floater = theme::color::Primary,
             .floater_disabled = theme::color::PrimaryD
@@ -71,10 +85,12 @@ namespace recompui {
 
         if (for_checked) {
             base_styles.normal.set_border_color(color_theme.border);
+            base_styles.normal.set_background_color(color_theme.bg);
             floater_styles.normal.set_background_color(color_theme.floater);
             inner_border_styles.normal.set_border_color(color_theme.border);
         } else {
             set_border_color(color_theme.border);
+            set_background_color(color_theme.bg);
             floater->set_background_color(color_theme.floater);
             inner_border->set_border_color(color_theme.border);
         }
@@ -88,6 +104,7 @@ namespace recompui {
         base_styles.focus.set_background_color(color_theme.bg_hover);
 
         base_styles.disabled.set_border_color(color_theme.border, 128);
+        base_styles.disabled.set_background_color(color_theme.bg, 128);
         inner_border_styles.disabled.set_border_color(color_theme.border, 128);
         floater_styles.disabled.set_background_color(color_theme.floater_disabled, 128);
     }
@@ -262,6 +279,15 @@ namespace recompui {
         set_checked_internal(checked, false, false, false);
     }
 
+    void Toggle::set_color_preset(ToggleColorPreset preset) {
+        color_preset = preset;
+        set_toggle_colors(false);
+        set_toggle_colors(true);
+        apply_styles();
+        inner_border->apply_styles();
+        floater->apply_styles();
+    }
+
     bool Toggle::is_checked() const {
         return checked;
     }
@@ -287,8 +313,21 @@ namespace recompui {
     }
 
     const ToggleColorTheme &IconToggle::get_toggle_color_theme_unchecked() {
+        if (color_preset == ToggleColorPreset::Filled) {
+            static const ToggleColorTheme color_theme = {
+                .border = theme::color::BorderSolid,
+                .bg = theme::color::Elevated,
+                .bg_hover = theme::color::ElevatedSoft,
+                .floater = theme::color::White,
+                .floater_disabled = theme::color::White
+            };
+
+            return color_theme;
+        }
+
         static const ToggleColorTheme color_theme = {
             .border = theme::color::Secondary,
+            .bg = theme::color::Transparent,
             .bg_hover = theme::color::SecondaryA30,
             .floater = theme::color::Secondary,
             .floater_disabled = theme::color::SecondaryD
@@ -311,6 +350,13 @@ namespace recompui {
         style_icon(icon_svg_left, sizing, true);
         icon_svg_right = context.create_element<Svg>(this, icon_src_right);
         style_icon(icon_svg_right, sizing, false);
+    }
+
+    void IconToggle::set_color_preset(ToggleColorPreset preset) {
+        Toggle::set_color_preset(preset);
+        theme::color icon_color = preset == ToggleColorPreset::Filled ? theme::color::BorderSolid : theme::color::White;
+        icon_svg_left->set_image_color(icon_color);
+        icon_svg_right->set_image_color(icon_color);
     }
 
     void IconToggle::set_checked_internal(bool checked, bool animate, bool setup, bool trigger_callbacks) {

@@ -136,7 +136,7 @@ namespace recompui {
         T get_graphics_enum_value(const std::string& key, OptionChangeContext change_context = OptionChangeContext::Permanent) {
             return get_graphics_value<T, uint32_t>(key, change_context);
         }
-    
+
         template <typename T = uint32_t>
         T get_graphics_number_value(const std::string& key, OptionChangeContext change_context = OptionChangeContext::Permanent) {
             return get_graphics_value<T, double>(key, change_context);

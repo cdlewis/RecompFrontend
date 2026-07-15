@@ -140,7 +140,7 @@ void Element::register_event_listeners(uint32_t events_enabled) {
     }
 }
 
-void Element::apply_style(Style *style) {
+void Element::apply_style(const Style *style) {
     for (auto it : style->property_map) {
         // Skip redundant SetProperty calls to prevent dirtying unnecessary state.
         // This avoids expensive layout operations when a simple color-only style is applied.

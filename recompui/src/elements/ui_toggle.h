@@ -11,15 +11,21 @@ namespace recompui {
         Default = Large
     };
 
+    enum class ToggleColorPreset {
+        Default,
+        Filled
+    };
+
     struct ToggleColorTheme {
         theme::color border;
+        theme::color bg;
         theme::color bg_hover;
         theme::color floater;
         theme::color floater_disabled;
     };
 
     struct ToggleStyleGroup {
-        Style normal; // not used for unchecked state
+        Style normal;
         Style hover;
         Style focus;
         Style disabled;
@@ -45,6 +51,7 @@ namespace recompui {
 
         bool checked = false;
         ToggleSize size = ToggleSize::Default;
+        ToggleColorPreset color_preset = ToggleColorPreset::Default;
 
         virtual const ToggleColorTheme &get_toggle_color_theme_unchecked();
         virtual const ToggleColorTheme &get_toggle_color_theme_checked();
@@ -60,6 +67,7 @@ namespace recompui {
         std::string_view get_type_name() override { return "Toggle"; }
     public:
         Toggle(ResourceId rid, Element *parent, ToggleSize size = ToggleSize::Default);
+        virtual void set_color_preset(ToggleColorPreset preset);
         void set_checked(bool checked);
         bool is_checked() const;
         void add_checked_callback(std::function<void(bool)> callback);
@@ -82,6 +90,7 @@ namespace recompui {
         std::string_view get_type_name() override { return "IconToggle"; }
     public:
         IconToggle(ResourceId rid, Element *parent, std::string_view icon_src_left, std::string_view icon_src_right, ToggleSize size = ToggleSize::Default);
+        void set_color_preset(ToggleColorPreset preset) override;
     };
 
 } // namespace recompui

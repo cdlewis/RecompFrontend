@@ -1,5 +1,7 @@
 #include "ui_tab_set.h"
 #include "ui_utils.h"
+#include "ui_frontend_theme.h"
+#include "recompui/recompui.h"
 
 namespace recompui {
 
@@ -49,6 +51,17 @@ Tab::Tab(ResourceId rid, Element *parent, int tab_index, std::string_view text, 
     add_style(&disabled_style, { disabled_state });
 }
 
+void Tab::apply_theme(const theme::TabTheme &tab_theme) {
+    apply_style(tab_theme.normal);
+    hover_style.apply_style(tab_theme.hover);
+    checked_style.apply_style(tab_theme.selected);
+    pulsing_style.apply_style(tab_theme.pulsing);
+    indicator->apply_style(tab_theme.indicator);
+    selected_indicator_color = tab_theme.indicator_color;
+    indicator->set_background_color(is_selected ? selected_indicator_color : theme::get_theme_color(theme::color::Transparent));
+    apply_styles();
+}
+
 void Tab::set_visible(bool is_visible) {
     visible = is_visible;
     set_enabled(visible);
@@ -73,7 +86,7 @@ void Tab::process_event(const Event &e) {
     case EventType::Enable: {
         bool active = std::get<EventEnable>(e.variant).active;
         set_style_enabled(disabled_state, !active);
-        indicator->set_background_color(active ? theme::color::BorderSolid : theme::color::Transparent);
+        indicator->set_background_color(active ? selected_indicator_color : theme::get_theme_color(theme::color::Transparent));
         break;
     }
     case EventType::Focus:
@@ -86,16 +99,21 @@ void Tab::process_event(const Event &e) {
         }
         break;
     case EventType::Update:
-        if (is_style_enabled(focus_state)) {
+        if (is_style_enabled(focus_state) && !is_mouse_active()) {
             recompui::Color pulse_color = recompui::get_pulse_color(750);
             pulsing_style.set_color(pulse_color);
             if (is_selected) {
-                indicator->set_background_color(pulse_color);
+                indicator->set_background_color(selected_indicator_color);
             } else {
                 indicator->set_background_color(theme::color::Transparent);
             }
             apply_styles();
             queue_update();
+        }
+        else if (is_style_enabled(focus_state)) {
+            pulsing_style.set_color(theme::color::White);
+            indicator->set_background_color(is_selected ? selected_indicator_color : theme::get_theme_color(theme::color::Transparent));
+            apply_styles();
         }
         break;
     default:
@@ -107,7 +125,7 @@ void Tab::set_selected(bool enable) {
     is_selected = enable;
     set_as_primary_focus(enable);
     set_style_enabled(checked_state, enable);
-    indicator->set_background_color(enable ? theme::color::BorderSolid : theme::color::Transparent);
+    indicator->set_background_color(enable ? selected_indicator_color : theme::get_theme_color(theme::color::Transparent));
 }
 
 TabSet::TabSet(ResourceId rid, Element *parent) :
@@ -161,6 +179,12 @@ void TabSet::focus_on_active_tab() {
         tabs[active_tab]->focus();
     }
 };
+
+void TabSet::apply_theme(const theme::TabTheme &tab_theme) {
+    for (Tab *tab : tabs) {
+        tab->apply_theme(tab_theme);
+    }
+}
 
 int TabSet::get_next_tab_in_direction(int index, int direction) {
     if (tabs.size() == 0) {

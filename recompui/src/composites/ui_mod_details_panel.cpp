@@ -1,4 +1,5 @@
 #include "ui_mod_details_panel.h"
+#include "elements/ui_frontend_theme.h"
 
 #include "librecomp/mods.hpp"
 
@@ -48,10 +49,16 @@ ModDetailsPanel::ModDetailsPanel(ResourceId rid, Element *parent) : Element(rid,
     {
         authors_label = context.create_element<Label>(body_container, LabelStyle::Normal);
         authors_label->set_margin_bottom(16.0f);
-        description_label = context.create_element<Label>(body_container, LabelStyle::Normal);
+        description_label = context.create_element<Label>(body_container, theme::Typography::Body);
+        description_label->set_font_size(24.0f);
+        description_label->set_line_height(28.0f);
     }
     
     buttons_container = context.create_element<Container>(this, FlexDirection::Row, JustifyContent::SpaceAround);
+    const Style &details_style = theme::get_frontend_theme().mods.details;
+    apply_style(details_style);
+    thumbnail_image->apply_style(details_style);
+    body_container->apply_style(details_style);
     buttons_container->set_as_navigation_container(NavigationType::Horizontal);
     buttons_container->set_flex(0.0f, 0.0f);
     buttons_container->set_padding(16.0f);

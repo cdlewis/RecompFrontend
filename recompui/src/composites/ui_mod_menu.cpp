@@ -7,6 +7,7 @@
 #include "elements/ui_modal.h"
 #include "elements/ui_button.h"
 #include "config/ui_config_page_options_menu.h"
+#include "elements/ui_frontend_theme.h"
 
 #include "librecomp/mods.hpp"
 
@@ -71,7 +72,7 @@ ModEntryView::ModEntryView(ResourceId rid, Element *parent) : Element(rid, paren
         thumbnail_image->set_height(modEntryHeight);
         thumbnail_image->set_min_width(modEntryHeight);
         thumbnail_image->set_min_height(modEntryHeight);
-        thumbnail_image->set_background_color(theme::color::BGOverlay);
+        thumbnail_image->set_background_color(theme::color::Transparent);
 
 
         body_container = context.create_element<Element>(this);
@@ -694,6 +695,9 @@ ModMenu::ModMenu(ResourceId rid, Element *parent) : Element(rid, parent) {
             } // list_container
 
             mod_details_panel = context.create_element<ModDetailsPanel>(body_container);
+            if (theme::get_frontend_theme().mods.enable_toggle == theme::TogglePreset::Filled) {
+                mod_details_panel->get_enable_toggle()->set_color_preset(ToggleColorPreset::Filled);
+            }
             mod_details_panel->set_mod_toggled_callback([this](bool enabled){ mod_toggled(enabled); });
             mod_details_panel->set_mod_configure_pressed_callback([this](){ mod_configure_requested(); });
         } // body_container
@@ -729,7 +733,7 @@ ModMenu::ModMenu(ResourceId rid, Element *parent) : Element(rid, parent) {
             refresh_button = context.create_element<IconButton>(footer_container, "icons/Reset.svg", recompui::ButtonStyle::Secondary, recompui::IconButtonSize::XLarge);
             refresh_button->add_pressed_callback([this](){ refresh_mods(true); });
 
-            mods_folder_button = context.create_element<Button>(footer_container, "Open Mods Folder", recompui::ButtonStyle::Tertiary);
+            mods_folder_button = context.create_element<Button>(footer_container, "Open Mods Folder", recompui::ButtonStyle::Secondary);
             mods_folder_button->add_pressed_callback([this](){ open_mods_folder(); });
         } // footer_container
     } // this

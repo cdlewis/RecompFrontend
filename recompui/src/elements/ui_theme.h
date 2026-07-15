@@ -106,6 +106,21 @@ namespace recompui {
         void set_theme_color(theme::color color, const recompui::Color &value);
         const recompui::Color &get_theme_color(theme::color color);
 
+        enum class ButtonPalette {
+            Primary,
+            Secondary,
+        };
+
+        struct ButtonStylePalette {
+            Color text;
+            Color background;
+            Color border;
+            Color active_text;
+            Color active_background;
+            Color active_border;
+            Color disabled_text;
+        };
+
         namespace border {
             extern float radius_sm;
             extern float radius_md;

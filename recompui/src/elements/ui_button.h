@@ -21,6 +21,15 @@ namespace recompui {
         Default = Large
     };
 
+    bool apply_button_palette(
+        Element &element,
+        Style &hover_style,
+        Style &focus_style,
+        Style &disabled_style,
+        Style &hover_disabled_style,
+        theme::ButtonPalette palette
+    );
+
     class Button : public Element {
     protected:
         ButtonStyle style = ButtonStyle::Primary;
