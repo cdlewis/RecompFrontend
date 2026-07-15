@@ -93,21 +93,20 @@ namespace recompinput {
         return profiles::get_input_profile_by_key(profiles::get_mp_keyboard_profile_key(player_index));
     }
 
-    void profiles::reset_profile_bindings(int profile_index, InputDevice device) {
-        // multiplayer keyboard profiles just get cleared completely because of overlapping key bindings.
-        bool is_multiplayer_kb = false;
-        if (device == InputDevice::Keyboard) {
-            for (size_t i = 0; i < recompinput::players::get_number_of_assigned_players(); i++) {
-                if (get_mp_keyboard_profile_index(i) == profile_index) {
-                    is_multiplayer_kb = true;
-                    break;
-                }
+    static int get_mp_keyboard_player_index(int profile_index) {
+        for (int player_index = 0; player_index < recompinput::max_num_players_supported; player_index++) {
+            if (get_mp_keyboard_profile_index(player_index) == profile_index) {
+                return player_index;
             }
         }
+        return -1;
+    }
 
+    void profiles::reset_profile_bindings(int profile_index, InputDevice device) {
+        const bool clear_bindings = device == InputDevice::Keyboard && get_mp_keyboard_player_index(profile_index) > 0;
         for (size_t i = 0; i < recompinput::num_game_inputs; i++) {
             GameInput input = static_cast<GameInput>(i);
-            if (is_multiplayer_kb) {
+            if (clear_bindings) {
                 profiles::clear_input_binding(profile_index, input);
                 continue;
             }
@@ -323,19 +322,6 @@ namespace recompinput {
         return keyboard_mp_profile_name + "(Player " + std::to_string(player_index + 1) + ")";
     }
 
-    void clear_mapping(int profile_index, GameInput input) {
-        for (size_t binding_index = 0; binding_index < recompinput::num_bindings_per_input; binding_index++) {
-            profiles::set_input_binding(profile_index, input, binding_index, InputField{});
-        }
-    };
-
-    // Used primarily for multiplayer keyboard input profiles
-    void clear_all_mappings(int profile_index) {
-        for (GameInput input = GameInput::A; input < GameInput::COUNT; input = static_cast<GameInput>(static_cast<int>(input) + 1)) {
-            clear_mapping(profile_index, input);
-        }
-    };
-
     void profiles::initialize_input_bindings() {
         keyboard_sp_profile_index = profiles::add_input_profile(keyboard_sp_profile_key, keyboard_sp_profile_name, recompinput::InputDevice::Keyboard, false);
         controller_sp_profile_index = profiles::add_input_profile(controller_sp_profile_key, controller_sp_profile_name, recompinput::InputDevice::Controller, false);
@@ -362,7 +348,9 @@ namespace recompinput {
                 InputDevice::Keyboard,
                 false
             );
-            clear_all_mappings(profile_index);
+            if (player_index == 0) {
+                profiles::reset_profile_bindings(profile_index, InputDevice::Keyboard);
+            }
         }
         return profile_index;
     }
