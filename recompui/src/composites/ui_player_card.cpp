@@ -106,19 +106,19 @@ PlayerCard::PlayerCard(
             options.emplace_back(profile_name, std::to_string(profile_index));
         }
 
-        auto select = context.create_element<Select>(
+        profile_select = context.create_element<Select>(
             this,
             options,
             std::to_string(cur_profile)
         );
 
-        select->add_change_callback([this](SelectOption& option, int option_index) {
+        profile_select->add_change_callback([this](SelectOption& option, int option_index) {
             this->on_select_player_profile(std::stoi(option.value));
         });
-        select->set_width(100.0f, Unit::Percent);
+        profile_select->set_width(100.0f, Unit::Percent);
 
         bool player_is_assigned = recompinput::players::get_player_is_assigned(player_index, is_assignment_card);
-        select->set_enabled(player_is_assigned);
+        profile_select->set_enabled(player_is_assigned);
 
         edit_profile_button = context.create_element<Button>(this, "Edit Profile", ButtonStyle::Secondary, ButtonSize::Medium);
         edit_profile_button->add_pressed_callback([this]() {
@@ -149,6 +149,9 @@ void PlayerCard::process_event(const Event &e) {
         break;
     }
     case EventType::Update:
+        if (uses_assignment_state()) {
+            update_assignment_player_card();
+        }
         if (queue_focus_on_edit_profile_button) {
             queue_focus_on_edit_profile_button = false;
             if (edit_profile_button != nullptr) {
@@ -174,8 +177,28 @@ void PlayerCard::on_edit_profile() {
     }
 }
 
+bool PlayerCard::uses_assignment_state() const {
+    return is_assignment_card || show_assignment_state;
+}
+
+void PlayerCard::set_profile_controls_enabled(bool enabled) {
+    if (profile_select != nullptr) {
+        profile_select->set_enabled(enabled);
+    }
+    if (edit_profile_button != nullptr) {
+        edit_profile_button->set_enabled(enabled);
+    }
+}
+
+void PlayerCard::set_assignment_state_enabled(bool enabled) {
+    show_assignment_state = enabled;
+    set_profile_controls_enabled(!enabled && recompinput::players::get_player_is_assigned(player_index, false));
+    update_assignment_player_card();
+    queue_update();
+}
+
 void PlayerCard::update_player_card_icon() {
-    bool use_temp_state = is_assignment_card && recompinput::playerassignment::is_active();
+    bool use_temp_state = uses_assignment_state() && recompinput::playerassignment::is_active();
     if (recompinput::players::get_player_is_assigned(player_index, use_temp_state)) {
         if (recompinput::players::get_player_input_device(player_index, use_temp_state) == recompinput::InputDevice::Controller) {
             cur_icon = PlayerCardIcon::Controller;
@@ -183,7 +206,7 @@ void PlayerCard::update_player_card_icon() {
             cur_icon = PlayerCardIcon::Keyboard;
         }
     } else {
-        if (is_assignment_card) {
+        if (uses_assignment_state()) {
             cur_icon = recompinput::playerassignment::is_player_currently_assigning(player_index)
                 ? PlayerCardIcon::Recording
                 : PlayerCardIcon::Waiting;
@@ -260,7 +283,7 @@ void PlayerCard::update_assignment_player_card() {
 
     was_player_assigning = player_is_currently_assigning;
 
-    bool use_temp_state = is_assignment_card && recompinput::playerassignment::is_active();
+    bool use_temp_state = uses_assignment_state() && recompinput::playerassignment::is_active();
     if (!recompinput::players::get_player_is_assigned(player_index, use_temp_state)) {
         if (player_is_currently_assigning) {
             icon->set_scale_2D(1.1f, 1.1f);

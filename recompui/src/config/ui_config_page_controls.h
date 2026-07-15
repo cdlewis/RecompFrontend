@@ -46,10 +46,14 @@ protected:
     bool is_binding = false;
 
     std::vector<BindingButton*> binding_buttons = {};
+    IconButton *action_button = nullptr;
+    bool hovered = false;
+    bool focused = false;
 
     Style active_style;
     std::function<void()> on_active_callback;
 
+    void update_active_state();
     virtual void process_event(const Event &e) override;
     std::string_view get_type_name() override { return "GameInputRow"; }
 public:
@@ -108,6 +112,7 @@ protected:
 
     bool queue_first_game_input_row_focus = false;
     bool queue_selected_player_profile_edit_focus = false;
+    bool player_assignment_was_active = false;
 
     struct {
         GameInputSection n64 = GameInputSection("");
@@ -152,6 +157,9 @@ protected:
     std::vector<GameInputRow*> game_input_rows;
     IconToggle *keyboard_toggle;
     Element *description_container = nullptr;
+    Button *reassign_players_button = nullptr;
+    Button *retry_assignment_button = nullptr;
+    Button *confirm_assignment_button = nullptr;
     on_player_bind_callback on_player_bind;
     Element *nav_up_element = nullptr;
     Element *first_nav_element = nullptr;
@@ -164,7 +172,6 @@ protected:
 
         struct {
             Button *go_back_button = nullptr;
-            Button *assign_players_button = nullptr;
         } right;
     } header_elements;
 
@@ -191,6 +198,7 @@ private:
     void render_body();
     void render_body_players();
     void render_body_mappings();
+    void render_player_assignment_actions(Element *parent);
     void render_control_mappings();
     void render_footer();
 

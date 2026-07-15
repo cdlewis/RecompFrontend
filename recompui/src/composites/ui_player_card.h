@@ -32,6 +32,7 @@ protected:
     Button *edit_profile_button = nullptr;
     int player_index = -1;
     bool is_assignment_card = false;
+    bool show_assignment_state = false;
     PlayerCardIcon cur_icon = PlayerCardIcon::None;
     bool was_player_assigning = false;
     bool queue_focus_on_edit_profile_button = false;
@@ -46,11 +47,14 @@ private:
     void on_select_player_profile(int profile_index);
     void on_edit_profile();
     void create_add_multiplayer_pill();
+    bool uses_assignment_state() const;
+    void set_profile_controls_enabled(bool enabled);
 public:
     PlayerCard(ResourceId rid, Element *parent, int player_index, bool is_assignment_card = false);
     virtual ~PlayerCard();
     void update_assignment_player_card();
     void update_player_card_icon();
+    void set_assignment_state_enabled(bool enabled);
     void set_on_select_profile_callback(on_select_player_profile_callback callback) {
         on_select_profile_callback = std::move(callback);
     }

@@ -85,6 +85,17 @@ void players::set_single_player_mode(bool single_player) {
     PlayerState.single_player_mode = single_player;
 }
 
+void players::assign_player_one_keyboard_if_unassigned() {
+    if (PlayerState.players.get_count() > 0) {
+        return;
+    }
+
+    int keyboard_profile_index = profiles::get_or_create_mp_keyboard_profile_index(0);
+    PlayerState.players = PlayerArray{};
+    PlayerState.players.add_keyboard_player();
+    profiles::set_input_profile_for_player(0, keyboard_profile_index, InputDevice::Keyboard);
+}
+
 void players::set_min_number_of_players(size_t min_players) {
     assert(min_players >= 1 && min_players <= PlayerState.max_players);
     PlayerState.min_players = min_players;
@@ -149,8 +160,8 @@ void playerassignment::stop_and_close_modal() {
     PlayerState.queue_close_player_assignment_modal = true;
 }
 
-void playerassignment::commit_player_assignment() {
-    stop_and_close_modal();
+void playerassignment::apply_player_assignment() {
+    stop();
 
     PlayerState.players = PlayerState.temp_players;
     for (int i = 0; i < players::get_number_of_assigned_players(); i++) {
@@ -164,6 +175,11 @@ void playerassignment::commit_player_assignment() {
             profiles::set_input_profile_for_player(i, profiles::get_or_create_mp_keyboard_profile_index(i), InputDevice::Keyboard);
         }
     }
+}
+
+void playerassignment::commit_player_assignment() {
+    apply_player_assignment();
+    PlayerState.queue_close_player_assignment_modal = true;
 }
 
 void playerassignment::add_keyboard_player() {
@@ -224,8 +240,9 @@ void playerassignment::process_sdl_event(SDL_Event* event) {
 
         switch (keyevent->keysym.scancode) {
         case SDL_Scancode::SDL_SCANCODE_ESCAPE:
-            // TODO: Restore previous assignment?
-            playerassignment::stop();
+            if (playerassignment::met_assignment_requirements()) {
+                playerassignment::stop();
+            }
             return;
         case SDL_Scancode::SDL_SCANCODE_RIGHT:
         case SDL_Scancode::SDL_SCANCODE_LEFT:

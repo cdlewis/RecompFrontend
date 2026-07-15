@@ -31,11 +31,11 @@ namespace recompui {
         set_background_color(theme::color::Transparent);
         set_cursor(Cursor::Pointer);
 
-        hover_style.set_color(theme::color::TextActive);
+        hover_style.set_color(theme::color::Text);
         hover_style.set_background_color(theme::color::Elevated);
         hover_style.set_border_left_color(theme::color::Elevated);
         
-        focus_style.set_color(theme::color::TextActive);
+        focus_style.set_color(theme::color::Text);
         focus_style.set_background_color(theme::color::Elevated);
         focus_style.set_border_left_color(theme::color::Elevated);
 
@@ -45,7 +45,7 @@ namespace recompui {
         disabled_style.set_cursor(Cursor::None);
 
         active_style.set_border_left_color(theme::color::PrimaryL);
-        active_style.set_color(theme::color::PrimaryL);
+        active_style.set_color(theme::color::Text);
 
         add_style(&hover_style, hover_state);
         add_style(&focus_style, focus_state);
@@ -99,6 +99,7 @@ namespace recompui {
     constexpr float select_element_min_width = 128.0f + 64.0f; // 128px for the select box, 64px for the arrow
     constexpr float select_element_padding = 16.0f;
     constexpr float select_element_caret_size = 24.0f;
+    constexpr float select_element_value_arrow_gap = 8.0f;
 
     Select::Select(
         ResourceId rid, Element *parent, std::vector<SelectOption> options, std::string selected_option_value
@@ -131,7 +132,7 @@ namespace recompui {
         set_display(Display::Block);
         set_text_align(TextAlign::Left);
         set_position(Position::Relative);
-        set_padding_right(select_element_padding);
+        set_padding_right(select_element_padding + select_element_caret_size + select_element_value_arrow_gap);
         set_padding_left(select_element_padding);
         set_height(select_element_height);
         set_width(100.0f, Unit::Percent);
@@ -154,11 +155,11 @@ namespace recompui {
         set_nav_auto(NavDirection::Down);
         set_nav_auto(NavDirection::Left);
 
-        hover_style.set_color(theme::color::TextActive);
+        hover_style.set_color(theme::color::Text);
         hover_style.set_background_color(theme::color::Elevated);
         hover_style.set_border_color(theme::color::ElevatedBorder);
 
-        focus_style.set_color(theme::color::TextActive);
+        focus_style.set_color(theme::color::Text);
         focus_style.set_background_color(theme::color::Elevated);
         focus_style.set_border_color(theme::color::ElevatedBorderHard);
         
@@ -188,7 +189,10 @@ namespace recompui {
         selectvalue_element.set_position(Position::Absolute);
         selectvalue_element.set_top(50.0f, recompui::Unit::Percent);
         selectvalue_element.set_left(select_element_padding);
+        selectvalue_element.set_right(select_element_padding + select_element_caret_size + select_element_value_arrow_gap);
         selectvalue_element.set_width_auto();
+        selectvalue_element.set_overflow(Overflow::Hidden);
+        selectvalue_element.set_white_space(WhiteSpace::Nowrap);
         selectvalue_element.set_height_auto();
         selectvalue_element.set_translate_2D(0.0f, -50.0f, recompui::Unit::Percent);
 

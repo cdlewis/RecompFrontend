@@ -19,6 +19,7 @@ namespace recompinput {
         size_t get_max_number_of_players();
         bool is_single_player_mode();
         void set_single_player_mode(bool single_player);
+        void assign_player_one_keyboard_if_unassigned();
         void set_min_number_of_players(size_t min_players);
         void set_max_number_of_players(size_t max_players);
         void set_player_count_range(size_t min_players, size_t max_players);
@@ -33,6 +34,7 @@ namespace recompinput {
         void start();
         void stop();
         void stop_and_close_modal();
+        void apply_player_assignment();
         void commit_player_assignment();
         void add_keyboard_player();
         bool met_assignment_requirements();

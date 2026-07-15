@@ -1,6 +1,7 @@
 #include "ui_config_page_controls.h"
 #include "composites/ui_assign_players_modal.h"
 #include "elements/ui_button.h"
+#include "elements/ui_frontend_theme.h"
 #include "elements/ui_label.h"
 #include "elements/ui_toggle.h"
 #include "elements/ui_container.h"
@@ -97,16 +98,17 @@ GameInputRow::GameInputRow(
     }
 
     if (input_ctx.clearable) {
-        auto clear_button = context.create_element<IconButton>(this, "icons/Trash.svg", ButtonStyle::Danger, IconButtonSize::Large);
-        clear_button->add_pressed_callback([this, on_clear_or_reset]() {
+        action_button = context.create_element<IconButton>(this, "icons/Trash.svg", ButtonStyle::Danger, IconButtonSize::Large);
+        action_button->add_pressed_callback([this, on_clear_or_reset]() {
             on_clear_or_reset(this->input_id, false);
         });
     } else {
-        auto reset_button = context.create_element<IconButton>(this, "icons/Reset.svg", ButtonStyle::Warning, IconButtonSize::Large);
-        reset_button->add_pressed_callback([this, on_clear_or_reset]() {
+        action_button = context.create_element<IconButton>(this, "icons/Reset.svg", ButtonStyle::Warning, IconButtonSize::Large);
+        action_button->add_pressed_callback([this, on_clear_or_reset]() {
             on_clear_or_reset(this->input_id, true);
         });
     }
+    update_active_state();
 
     bindings.resize(recompinput::num_bindings_per_input);
     for (size_t i = 0; i < recompinput::num_bindings_per_input; i++) {
@@ -117,6 +119,18 @@ GameInputRow::GameInputRow(
 }
 
 GameInputRow::~GameInputRow() {
+}
+
+void GameInputRow::update_active_state() {
+    bool active = hovered || focused;
+    set_style_enabled(active_state_style_name, active);
+    if (action_button == nullptr) {
+        return;
+    }
+
+    action_button->set_opacity(active ? 1.0f : 0.0f);
+    action_button->set_pointer_events(active ? PointerEvents::Auto : PointerEvents::None);
+    action_button->set_focusable(active);
 }
 
 void GameInputRow::update_bindings(BindingList &new_bindings) {
@@ -139,18 +153,18 @@ void GameInputRow::process_event(const Event &e) {
     switch (e.type) {
     case EventType::Hover:
         {
-            bool hover_active = std::get<EventHover>(e.variant).active;
-            set_style_enabled(active_state_style_name, hover_active);
-            if (hover_active && on_active_callback) {
+            hovered = std::get<EventHover>(e.variant).active;
+            update_active_state();
+            if (hovered && on_active_callback) {
                 on_active_callback();
             }
         }
         break;
     case EventType::Focus:
         {
-            bool focus_active = std::get<EventFocus>(e.variant).active;
-            set_style_enabled(active_state_style_name, focus_active);
-            if (focus_active && on_active_callback) {
+            focused = std::get<EventFocus>(e.variant).active;
+            update_active_state();
+            if (focused && on_active_callback) {
                 on_active_callback();
             }
             scroll_buffer->scroll_into_view();
@@ -169,6 +183,7 @@ void GameInputRow::focus_on_first_binding() {
 
 ConfigPageControls::ConfigPageControls(ResourceId rid, Element *parent) : ConfigPage(rid, parent) {
     controls_page = this;
+    player_assignment_was_active = recompinput::playerassignment::is_active();
 
     multiplayer_enabled = recompinput::players::is_single_player_mode() == false;
     this->max_num_players = multiplayer_enabled ? recompinput::players::get_max_number_of_players() : 1;
@@ -217,6 +232,10 @@ void ConfigPageControls::create_game_input_contexts() {
 void ConfigPageControls::process_event(const Event &e) {
     switch (e.type) {
     case EventType::Update:
+        if (player_assignment_was_active != recompinput::playerassignment::is_active()) {
+            player_assignment_was_active = recompinput::playerassignment::is_active();
+            force_update();
+        }
         if (awaiting_binding && !recompinput::binding::is_binding()) {
             awaiting_binding = false;
             update_control_mappings();
@@ -228,6 +247,18 @@ void ConfigPageControls::process_event(const Event &e) {
         if (last_update_index != update_index) {
             last_update_index = update_index;
             render_all();
+        }
+        if (multiplayer_enabled && !multiplayer_view_mappings && recompinput::playerassignment::is_active()) {
+            bool met_assignment_reqs = recompinput::playerassignment::met_assignment_requirements();
+            if (confirm_assignment_button != nullptr) {
+                confirm_assignment_button->set_enabled(met_assignment_reqs);
+            }
+            if (retry_assignment_button != nullptr) {
+                retry_assignment_button->set_enabled(met_assignment_reqs);
+            }
+            for (auto *player_card : player_cards) {
+                player_card->update_assignment_player_card();
+            }
         }
         queue_update();
         break;
@@ -259,7 +290,7 @@ static void show_or_hide_if_exists(Element* element, bool show) {
 void ConfigPageControls::render_header() {
     // Header attempts to not re-render elements if not necessary, instead swapping visibility / updating text.
 
-    if (!multiplayer_enabled) {
+    if (!multiplayer_enabled || !multiplayer_view_mappings) {
         hide_header();
         return;
     }
@@ -285,9 +316,6 @@ void ConfigPageControls::render_header() {
             }
             header_elements.left.current_profile_name = profile_name;
             show_or_hide_if_exists(header_elements.left.profile_name_label, true);
-        } else {
-            show_or_hide_if_exists(header_elements.left.profile_name_label, false);
-            // Nothing rendered here as of now.. maybe single player toggle
         }
     }
 
@@ -295,35 +323,17 @@ void ConfigPageControls::render_header() {
     {
         auto header_right = header->get_right();
 
-        if (multiplayer_view_mappings) {
-            if (header_elements.right.go_back_button == nullptr) {
-                header_elements.right.go_back_button = context.create_element<Button>(header_right, "Go back", ButtonStyle::Tertiary);
-                header_elements.right.go_back_button->add_pressed_callback([this]() {
-                    this->multiplayer_view_mappings = false;
-                    this->queue_selected_player_profile_edit_focus = true;
-                    this->force_update();
-                });
-                header_elements.right.go_back_button->set_as_primary_focus(true);
-            }
-
-            show_or_hide_if_exists(header_elements.right.go_back_button, true);
-            show_or_hide_if_exists(header_elements.right.assign_players_button, false);
-        } else {
-            if (header_elements.right.assign_players_button == nullptr) {
-                header_elements.right.assign_players_button = context.create_element<Button>(header_right, "Assign players", ButtonStyle::Primary);
-                header_elements.right.assign_players_button->set_debug_id("AssignPlayersButton");
-                header_elements.right.assign_players_button->add_pressed_callback([]() {
-                    if (!recompinput::players::has_enough_players_assigned()) {
-                        recompinput::playerassignment::start();
-                    }
-                    recompui::AssignPlayersModal::open();
-                });
-                header_elements.right.assign_players_button->set_as_primary_focus(true);
-            }
-
-            show_or_hide_if_exists(header_elements.right.go_back_button, false);
-            show_or_hide_if_exists(header_elements.right.assign_players_button, true);
+        if (header_elements.right.go_back_button == nullptr) {
+            header_elements.right.go_back_button = context.create_element<Button>(header_right, "Go back", ButtonStyle::Tertiary);
+            header_elements.right.go_back_button->add_pressed_callback([this]() {
+                this->multiplayer_view_mappings = false;
+                this->queue_selected_player_profile_edit_focus = true;
+                this->force_update();
+            });
+            header_elements.right.go_back_button->set_as_primary_focus(true);
         }
+
+        show_or_hide_if_exists(header_elements.right.go_back_button, true);
     }
 }
 
@@ -356,6 +366,14 @@ void ConfigPageControls::render_body_mappings() {
     {
         body->get_right()->clear_children();
         description_container = context.create_element<Element>(body->get_right(), 0, "p", true);
+        description_container->set_font_family(get_primary_font_family());
+        description_container->set_font_weight(400);
+        description_container->set_font_size(30.0f);
+        description_container->set_line_height(40.0f);
+        description_container->set_color(theme::color::Text);
+        description_container->set_width(100.0f, Unit::Percent);
+        description_container->set_margin_top(56.0f);
+        description_container->set_margin_bottom(4.0f);
         description_container->set_text("");
     }
 }
@@ -364,29 +382,59 @@ void ConfigPageControls::render_body_players() {
     recompui::ContextId context = get_current_context();
     body->set_as_navigation_container(NavigationType::Horizontal);
     body->set_max_height(100.0f, Unit::Percent);
+    const bool is_assigning_players = recompinput::playerassignment::is_active();
 
     auto body_left = body->get_left();
     body_left->clear_children();
     player_cards.clear();
+    reassign_players_button = nullptr;
+    retry_assignment_button = nullptr;
+    confirm_assignment_button = nullptr;
 
-    body_left->set_display(Display::Block);
+    body_left->set_display(Display::Flex);
+    body_left->set_flex_direction(FlexDirection::Column);
+    body_left->set_align_items(AlignItems::Center);
     // Top/bottom padding is within the player cards so that controller nav puts them more into view.
     body_left->set_padding_top(0.0f);
-    body_left->set_padding_bottom(0.0f);
+    body_left->set_padding_bottom(32.0f);
     body_left->set_padding_right(64.0f);
     body_left->set_padding_left(64.0f);
-    body_left->set_as_navigation_container(NavigationType::GridCol);
+    body_left->set_as_navigation_container(NavigationType::Vertical);
     body_left->set_position(Position::Relative);
     body_left->set_height_auto();
     body_left->set_max_height(100.0f, Unit::Percent);
     body_left->set_overflow_y(Overflow::Auto);
 
+    auto description = context.create_element<Label>(
+        body_left,
+        is_assigning_players
+            ? "Press any button on each keyboard or controller to assign players. Confirm when all desired players are assigned."
+            : "Use the 'Re-assign Players' button to add more players or remap a player to a different device, such as a controller. Keybind configuration is available once a controller or keyboard has been assigned.",
+        LabelStyle::Small
+    );
+    description->set_font_family(get_primary_font_family());
+    description->set_font_weight(400);
+    description->set_font_size(30.0f);
+    description->set_line_height(40.0f);
+    description->set_color(theme::color::Text);
+    description->set_width(100.0f, Unit::Percent);
+    description->set_max_width(1120.0f);
+    description->set_height(120.0f);
+    description->set_margin_top(56.0f);
+    description->set_margin_bottom(4.0f);
+
     bool make_fakes = max_num_players > 4;
+
+    auto player_grid_wrapper = context.create_element<Element>(body_left, 0, "div", false);
+    player_grid_wrapper->set_display(Display::Block);
+    player_grid_wrapper->set_width(100.0f, Unit::Percent);
+    player_grid_wrapper->set_height_auto();
+    player_grid_wrapper->set_as_navigation_container(NavigationType::GridCol);
 
     recompui::Element *player_grid = nullptr;
     // Grid supports groups of 4
     for (int i = 0; i < max_num_players; i += 4) {
-        player_grid = context.create_element<Element>(body_left, 0, "div", false);
+        player_grid = context.create_element<Element>(player_grid_wrapper, 0, "div", false);
         player_grid->set_as_navigation_container(NavigationType::GridRow);
         player_grid->set_display(Display::Flex);
         player_grid->set_flex_direction(FlexDirection::Row);
@@ -421,6 +469,7 @@ void ConfigPageControls::render_body_players() {
             player_card->set_on_edit_profile_callback([this](int player_index) {
                 this->on_edit_player_profile(player_index);
             });
+            player_card->set_assignment_state_enabled(is_assigning_players);
             player_cards.push_back(player_card);
             if (i == 0 && j == 0) {
                 player_card->set_as_primary_focus(true);
@@ -438,6 +487,53 @@ void ConfigPageControls::render_body_players() {
         if (selected_player >= 0 && selected_player < static_cast<int>(player_cards.size())) {
             player_cards[selected_player]->focus_on_edit_profile_button();
         }
+    }
+
+    render_player_assignment_actions(body_left);
+}
+
+void ConfigPageControls::render_player_assignment_actions(Element *parent) {
+    recompui::ContextId context = get_current_context();
+    const bool is_assigning_players = recompinput::playerassignment::is_active();
+
+    auto action_row = context.create_element<Element>(parent, 0, "div", false);
+    action_row->set_display(Display::Flex);
+    action_row->set_flex_direction(FlexDirection::Row);
+    action_row->set_align_items(AlignItems::Center);
+    action_row->set_justify_content(JustifyContent::Center);
+    action_row->set_gap(12.0f);
+    action_row->set_width(480.0f);
+    action_row->set_height(64.0f);
+    action_row->set_margin_top(32.0f);
+    action_row->set_margin_bottom(-16.0f);
+    action_row->set_as_navigation_container(NavigationType::Horizontal);
+
+    if (is_assigning_players) {
+        confirm_assignment_button = context.create_element<Button>(action_row, "Confirm", ButtonStyle::Primary);
+        confirm_assignment_button->set_debug_id("ConfirmPlayerAssignmentButton");
+        confirm_assignment_button->set_width(180.0f);
+        confirm_assignment_button->set_enabled(recompinput::playerassignment::met_assignment_requirements());
+        confirm_assignment_button->add_pressed_callback([this]() {
+            recompinput::playerassignment::apply_player_assignment();
+            this->force_update();
+        });
+
+        retry_assignment_button = context.create_element<Button>(action_row, "Retry", ButtonStyle::Secondary);
+        retry_assignment_button->set_debug_id("RetryPlayerAssignmentButton");
+        retry_assignment_button->set_width(180.0f);
+        retry_assignment_button->set_enabled(recompinput::playerassignment::met_assignment_requirements());
+        retry_assignment_button->add_pressed_callback([this]() {
+            recompinput::playerassignment::start();
+            this->force_update();
+        });
+    } else {
+        reassign_players_button = context.create_element<Button>(action_row, "Re-assign Players", ButtonStyle::Primary);
+        reassign_players_button->set_debug_id("AssignPlayersButton");
+        reassign_players_button->set_width(340.0f, Unit::Dp);
+        reassign_players_button->add_pressed_callback([this]() {
+            recompinput::playerassignment::start();
+            this->force_update();
+        });
     }
 }
 
@@ -475,6 +571,9 @@ void ConfigPageControls::render_footer() {
         footer_left->clear_children();
         if (!multiplayer_enabled) {
             keyboard_toggle = context.create_element<IconToggle>(footer_left, "icons/Cont.svg", "icons/Keyboard.svg", ToggleSize::Large);
+            if (theme::get_frontend_theme().controls.input_device_toggle == theme::TogglePreset::Filled) {
+                keyboard_toggle->set_color_preset(ToggleColorPreset::Filled);
+            }
             keyboard_toggle->set_checked(single_player_show_keyboard_mappings);
             keyboard_toggle->add_checked_callback([this](bool checked) {
                 this->single_player_show_keyboard_mappings = checked;
