@@ -40,6 +40,16 @@ void purge_deferred_controller_profiles() {
 
 bool sdl_event_filter(void* userdata, SDL_Event* event) {
     switch (event->type) {
+    case SDL_EventType::SDL_WINDOWEVENT:
+        // RmlUi is sized from the renderer's swapchain framebuffer in backing
+        // pixels. SDL window resize events carry logical window coordinates on
+        // HiDPI displays, so forwarding them lets RmlUi overwrite the backing
+        // pixel context size with a logical size after a resize settles.
+        if (event->window.event != SDL_WINDOWEVENT_RESIZED && event->window.event != SDL_WINDOWEVENT_SIZE_CHANGED) {
+            queue_if_enabled(event);
+        }
+        break;
+
     case SDL_EventType::SDL_KEYDOWN:
     {
         SDL_KeyboardEvent* keyevent = &event->key;

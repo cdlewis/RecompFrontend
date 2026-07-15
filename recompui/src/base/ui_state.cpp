@@ -212,6 +212,7 @@ public:
     bool await_stick_return_x = false;
     bool await_stick_return_y = false;
     int last_active_mouse_position[2] = {0, 0};
+    SDL_Window* window = nullptr;
     std::unique_ptr<SystemInterface_SDL> system_interface;
     recompui::RmlRenderInterface_RT64 render_interface;
     Rml::Context* context;
@@ -223,6 +224,7 @@ public:
     UIState& operator=(UIState&& rhs) = delete;
 
     UIState(SDL_Window* window, plume::RenderInterface* interface, plume::RenderDevice* device) {
+        this->window = window;
 
         system_interface = std::make_unique<SystemInterface_SDL>();
         system_interface->SetWindow(window);
@@ -272,6 +274,22 @@ public:
                 Rml::LoadFontFace(extra_font_path.string(), false);
             }
         }
+    }
+
+    Rml::Vector2i scale_mouse_position(int x, int y) {
+        int window_width = 0;
+        int window_height = 0;
+        SDL_GetWindowSize(window, &window_width, &window_height);
+
+        Rml::Vector2i context_dimensions = context->GetDimensions();
+        if (window_width <= 0 || window_height <= 0) {
+            return { x, y };
+        }
+
+        return {
+            int(std::lround(float(x) * float(context_dimensions.x) / float(window_width))),
+            int(std::lround(float(y) * float(context_dimensions.y) / float(window_height)))
+        };
     }
 
     void create_menus() {
@@ -798,7 +816,27 @@ void draw_hook(plume::RenderCommandList* command_list, plume::RenderFramebuffer*
             // Send the event to RmlUi if this type of event is being captured.
             if (is_mouse_input) {
                 if (context_capturing_mouse) {
-                    RmlSDL::InputEventHandler(ui_state->context, cur_event);
+                    // SDL mouse events are reported in window coordinates, while the RmlUi
+                    // context is sized to the drawable/framebuffer. On HiDPI displays
+                    // (for example macOS Retina), those coordinate spaces differ, so scale
+                    // before hit-testing or RmlUi will hover/click the wrong element.
+                    SDL_Event rml_event = cur_event;
+                    if (cur_event.type == SDL_EventType::SDL_MOUSEMOTION) {
+                        Rml::Vector2i scaled_point = ui_state->scale_mouse_position(cur_event.motion.x, cur_event.motion.y);
+                        rml_event.motion.x = scaled_point.x;
+                        rml_event.motion.y = scaled_point.y;
+                    }
+                    else if (cur_event.type == SDL_EventType::SDL_MOUSEBUTTONDOWN || cur_event.type == SDL_EventType::SDL_MOUSEBUTTONUP) {
+                        Rml::Vector2i scaled_point = ui_state->scale_mouse_position(cur_event.button.x, cur_event.button.y);
+                        rml_event.button.x = scaled_point.x;
+                        rml_event.button.y = scaled_point.y;
+
+                        // RmlUi chooses the click target from its current mouse position, not
+                        // from the button event coordinates. Keep that position fresh for
+                        // click-only interactions, such as clicking without moving the mouse.
+                        ui_state->context->ProcessMouseMove(rml_event.button.x, rml_event.button.y, RmlSDL::GetKeyModifierState());
+                    }
+                    RmlSDL::InputEventHandler(ui_state->context, rml_event);
                 }
             }
             else {
@@ -860,19 +898,11 @@ void draw_hook(plume::RenderCommandList* command_list, plume::RenderFramebuffer*
     ui_state->update_focus(mouse_moved, non_mouse_interacted);
 
     if (recompui::is_any_context_shown()) {
-        if (recompui::is_context_shown(recompui::get_launcher_context_id())) {
-            recompui::update_launcher_menu();
-        }
-
-        ui_state->update_contexts();
-
         int width = swap_chain_framebuffer->getWidth();
         int height = swap_chain_framebuffer->getHeight();
 
         // Scale the UI based on the window size with 1080 vertical resolution as the reference point.
         ui_state->context->SetDensityIndependentPixelRatio((height) / 1080.0f);
-
-        ui_state->render_interface.start(command_list, width, height);
 
         static int prev_width = 0;
         static int prev_height = 0;
@@ -882,6 +912,14 @@ void draw_hook(plume::RenderCommandList* command_list, plume::RenderFramebuffer*
         }
         prev_width = width;
         prev_height = height;
+
+        if (recompui::is_context_shown(recompui::get_launcher_context_id())) {
+            recompui::update_launcher_menu();
+        }
+
+        ui_state->update_contexts();
+
+        ui_state->render_interface.start(command_list, width, height);
 
         ui_state->context->Update();
         ui_state->context->Render();
