@@ -388,12 +388,11 @@ public:
             return;
         }
 
-        // If there was mouse motion, get the current hovered element (or its target if it points to one) and focus that if applicable.
-        if (mouse_is_active) {
-            if (mouse_is_active_changed) {
-                Rml::Element* focused = current_document->GetFocusLeafNode();
-                if (focused) focused->Blur();
-            }
+        // Clear keyboard/controller focus on mouse motion so hover is the only active visual state.
+        if (mouse_is_active && mouse_moved) {
+            Rml::Element* focused = current_document->GetFocusLeafNode();
+            if (focused)
+                focused->Blur();
         }
     }
 
