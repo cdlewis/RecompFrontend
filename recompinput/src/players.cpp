@@ -298,7 +298,13 @@ void playerassignment::process_sdl_event(SDL_Event* event) {
                 case SDL_Scancode::SDL_SCANCODE_DOWN:
                     break;
                 default:
-                    if (playerassignment::was_keyboard_assigned()) {
+                    bool add_keyboard_shortcut =
+                        keyevent->repeat == 0 &&
+                        (keyevent->keysym.sym == SDLK_PLUS || keyevent->keysym.sym == SDLK_KP_PLUS ||
+                         (keyevent->keysym.sym == SDLK_EQUALS && (keyevent->keysym.mod & KMOD_SHIFT) != 0));
+                    if (add_keyboard_shortcut) {
+                        playerassignment::add_keyboard_player();
+                    } else if (playerassignment::was_keyboard_assigned()) {
                         for (size_t i = 0; i < PlayerState.temp_players.get_count(); i++) {
                             if (PlayerState.temp_players[i].keyboard_enabled &&
                                 PlayerState.temp_players[i].controller == nullptr) {
