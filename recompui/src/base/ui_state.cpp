@@ -54,8 +54,8 @@ void recompui::open_quit_game_prompt() {
                 AssignPlayersModal::open();
             }
         },
-        recompui::ButtonStyle::Danger,
-        recompui::ButtonStyle::Tertiary,
+        recompui::ButtonStyle::Primary,
+        recompui::ButtonStyle::Secondary,
         true
     );
 }

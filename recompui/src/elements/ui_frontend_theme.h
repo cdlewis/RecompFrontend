@@ -48,6 +48,7 @@ struct FrontendTheme {
         Style content;
         Style controls;
         InteractiveStyle button;
+        std::optional<InteractiveStyle> secondary_button;
     } prompt;
     struct {
         InteractiveStyle binding_button;

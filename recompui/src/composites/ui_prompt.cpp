@@ -51,10 +51,11 @@ void run_cancel_callback() {
 
 void apply_prompt_button_style(recompui::Button *button) {
     const auto &style = recompui::theme::get_frontend_theme().prompt.button;
-    button->apply_style(style.normal);
+    static_cast<recompui::Style&>(*button).apply_style(style.normal);
     button->get_hover_style()->apply_style(style.hover);
     button->get_focus_style()->apply_style(style.focus);
     button->get_disabled_style()->apply_style(style.disabled);
+    button->set_border_width(recompui::theme::border::width);
     button->apply_styles();
 }
 
@@ -119,10 +120,10 @@ void recompui::init_prompt_context() {
     prompt_state.prompt_content->set_overflow(Overflow::Hidden);
     
     prompt_state.prompt_header = context.create_element<Label>(prompt_state.prompt_content, "", LabelStyle::Large);
-    prompt_state.prompt_header->set_margin(24, Unit::Dp);
+    prompt_state.prompt_header->set_margin(32, Unit::Dp);
 
     prompt_state.prompt_label = context.create_element<Label>(prompt_state.prompt_content, "", LabelStyle::Small);
-    prompt_state.prompt_label->set_margin(24, Unit::Dp);
+    prompt_state.prompt_label->set_margin(32, Unit::Dp);
     prompt_state.prompt_label->set_margin_top(0);
     
     prompt_state.prompt_controls = context.create_element<Element>(prompt_state.prompt_content);
@@ -132,7 +133,7 @@ void recompui::init_prompt_context() {
     prompt_state.prompt_controls->set_as_navigation_container(NavigationType::Horizontal);
     prompt_state.prompt_controls->set_justify_content(JustifyContent::SpaceBetween);
     prompt_state.prompt_controls->set_align_items(AlignItems::Center);
-    prompt_state.prompt_controls->set_padding(24, Unit::Dp);
+    prompt_state.prompt_controls->set_padding(32, Unit::Dp);
     prompt_state.prompt_controls->set_border_top_width(theme::border::width, Unit::Dp);
     prompt_state.prompt_controls->set_border_top_color(theme::color::BorderSoft);
     prompt_state.prompt_controls->set_border_bottom_left_radius(theme::border::radius_lg, Unit::Dp);
@@ -203,6 +204,18 @@ void recompui::open_choice_prompt(
     prompt_state.cancel_button->apply_button_style(cancel_variant);
     apply_prompt_button_style(prompt_state.confirm_button);
     apply_prompt_button_style(prompt_state.cancel_button);
+    if (cancel_variant == ButtonStyle::Secondary) {
+        const auto &secondary_style = theme::get_frontend_theme().prompt.secondary_button;
+        if (secondary_style) {
+            static_cast<Style&>(*prompt_state.cancel_button).apply_style(secondary_style->normal);
+            prompt_state.cancel_button->get_hover_style()->apply_style(secondary_style->hover);
+            prompt_state.cancel_button->get_focus_style()->apply_style(secondary_style->focus);
+            prompt_state.cancel_button->get_disabled_style()->apply_style(secondary_style->disabled);
+        } else {
+            prompt_state.cancel_button->apply_button_style(cancel_variant);
+        }
+        prompt_state.cancel_button->apply_styles();
+    }
 
     prompt_state.ui_context.close();
 
