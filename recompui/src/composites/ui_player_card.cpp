@@ -105,10 +105,17 @@ PlayerCard::PlayerCard(ResourceId rid, Element* parent, int player_index, bool i
             }
         };
 
-        int device_profile_index = assigned_device != recompinput::InputDevice::COUNT
-                                       ? cur_profile
-                                       : recompinput::profiles::get_or_create_mp_keyboard_profile_index(player_index);
-        add_profile_option(device_profile_index);
+        if (has_controller && recompinput::players::get_player_is_assigned(player_index)) {
+            const auto& player = recompinput::players::get_player(player_index);
+            add_profile_option(
+                recompinput::profiles::get_controller_profile_index_from_sdl_controller(player.controller));
+        }
+
+        int current_or_default_profile_index =
+            assigned_device != recompinput::InputDevice::COUNT
+                ? cur_profile
+                : recompinput::profiles::get_or_create_mp_keyboard_profile_index(player_index);
+        add_profile_option(current_or_default_profile_index);
 
         if (has_controller) {
             add_profile_option(recompinput::profiles::get_sp_controller_profile_index());
