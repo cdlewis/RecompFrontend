@@ -389,10 +389,16 @@ public:
         }
 
         // Clear keyboard/controller focus on mouse motion so hover is the only active visual state.
+        // Form controls need to retain focus while the mouse is in use: RmlUi closes an open
+        // select on blur, and inputs require focus for continued text entry.
         if (mouse_is_active && mouse_moved) {
             Rml::Element* focused = current_document->GetFocusLeafNode();
-            if (focused)
+            if (focused &&
+                focused->GetTagName() != "select" &&
+                focused->GetTagName() != "input" &&
+                focused->GetTagName() != "textarea") {
                 focused->Blur();
+            }
         }
     }
 
