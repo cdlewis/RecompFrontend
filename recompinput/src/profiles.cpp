@@ -19,7 +19,16 @@ struct InputProfile {
 };
 
 static std::vector<InputProfile> input_profiles{};
-static std::array<std::pair<int, int>, recompinput::max_num_players_supported> players_input_profile_indices{};
+static std::array<std::pair<int, int>, recompinput::max_num_players_supported> players_input_profile_indices = [] {
+    std::array<std::pair<int, int>, recompinput::max_num_players_supported> result;
+    result.fill({ -1, -1 });
+    return result;
+}();
+static std::array<recompinput::InputDevice, recompinput::max_num_players_supported> players_assigned_devices = [] {
+    std::array<recompinput::InputDevice, recompinput::max_num_players_supported> result;
+    result.fill(recompinput::InputDevice::COUNT);
+    return result;
+}();
 static std::unordered_map<std::string, int> input_profile_key_index_map{};
 static std::vector<int> input_profile_custom_indices[static_cast<size_t>(recompinput::InputDevice::COUNT)]{};
 
@@ -42,6 +51,7 @@ static const std::string controller_sp_profile_name = "Controller (SP)";
 
 static const std::string keyboard_mp_profile_key = "keyboard_mp_player_"; // + player index
 static const std::string keyboard_mp_profile_name = "Keyboard "; // + "(player number)"
+static std::filesystem::path controls_config_path;
 
 // Make the button value array, which maps a button index to its bit field.
 #define DEFINE_INPUT(name, value, readable) uint16_t(value##u),
@@ -224,6 +234,32 @@ namespace recompinput {
         }
     }
 
+    void profiles::clear_player_assignments() {
+        players_assigned_devices.fill(InputDevice::COUNT);
+    }
+
+    void profiles::set_assigned_input_device_for_player(int player_index, InputDevice device) {
+        if (player_index >= 0 && player_index < max_num_players_supported) {
+            players_assigned_devices[player_index] = device;
+        }
+    }
+
+    InputDevice profiles::get_assigned_input_device_for_player(int player_index) {
+        if (player_index >= 0 && player_index < max_num_players_supported) {
+            return players_assigned_devices[player_index];
+        }
+        return InputDevice::COUNT;
+    }
+
+    static void assign_default_player_one_if_unassigned() {
+        if (profiles::get_assigned_input_device_for_player(0) != InputDevice::COUNT) {
+            return;
+        }
+
+        profiles::set_assigned_input_device_for_player(0, InputDevice::Keyboard);
+        profiles::set_input_profile_for_player(0, profiles::get_sp_keyboard_profile_index(), InputDevice::Keyboard);
+    }
+
     int profiles::add_controller(ControllerGUID guid, int profile_index) {
         auto it = controller_hash_index_map.find(guid.hash);
         if (it != controller_hash_index_map.end()) {
@@ -384,15 +420,35 @@ namespace recompinput {
                 cur_x += recompinput::get_input_analog(player_index, mappings[(size_t)GameInput::X_AXIS_POS]) - recompinput::get_input_analog(player_index, mappings[(size_t)GameInput::X_AXIS_NEG]);
                 cur_y += recompinput::get_input_analog(player_index, mappings[(size_t)GameInput::Y_AXIS_POS]) - recompinput::get_input_analog(player_index, mappings[(size_t)GameInput::Y_AXIS_NEG]);
             };
-            
-            int profile_index_cont = players::is_single_player_mode() ? profiles::get_sp_controller_profile_index() : players_input_profile_indices[player_index].first;
-            int profile_index_kb = players::is_single_player_mode() ? profiles::get_sp_keyboard_profile_index() : players_input_profile_indices[player_index].second;
-            check_buttons(profile_index_cont);
-            check_buttons(profile_index_kb);
 
-            check_joystick(profile_index_cont);
-            recompinput::apply_joystick_deadzone(cur_x, cur_y, &cur_x, &cur_y);
-            check_joystick(profile_index_kb);
+            if (players::is_single_player_mode()) {
+                int profile_index_cont = profiles::get_sp_controller_profile_index();
+                int profile_index_kb = profiles::get_sp_keyboard_profile_index();
+                check_buttons(profile_index_cont);
+                check_buttons(profile_index_kb);
+
+                check_joystick(profile_index_cont);
+                recompinput::apply_joystick_deadzone(cur_x, cur_y, &cur_x, &cur_y);
+                check_joystick(profile_index_kb);
+            } else if (players::get_player_is_assigned(player_index)) {
+                switch (players::get_player_input_device(player_index)) {
+                case InputDevice::Controller: {
+                    int profile_index = players_input_profile_indices[player_index].first;
+                    check_buttons(profile_index);
+                    check_joystick(profile_index);
+                    recompinput::apply_joystick_deadzone(cur_x, cur_y, &cur_x, &cur_y);
+                    break;
+                }
+                case InputDevice::Keyboard: {
+                    int profile_index = players_input_profile_indices[player_index].second;
+                    check_buttons(profile_index);
+                    check_joystick(profile_index);
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
         }
 
         *buttons_out = cur_buttons;
@@ -412,6 +468,7 @@ namespace recompinput {
     }
 
     bool profiles::save_controls_config(const std::filesystem::path& path) {
+        controls_config_path = path;
         int profile_count = profiles::get_input_profile_count();
         int controller_count = profiles::get_controller_count();
         json config_json{};
@@ -427,7 +484,7 @@ namespace recompinput {
             profile["device"] = profiles::get_input_profile_device(i);
             profile["custom"] = profiles::is_input_profile_custom(i);
             profile["mappings"] = json();
-            
+
             for (int j = 0; j < (int)(GameInput::COUNT); j++) {
                 add_input_bindings(profile["mappings"], i, static_cast<GameInput>(j));
             }
@@ -440,7 +497,26 @@ namespace recompinput {
             controller["profile"] = profiles::get_input_profile_key(profiles::get_controller_profile_index(i));
         }
 
+        json& assignments = config_json["player_assignments"];
+        assignments = json::array();
+        for (size_t i = 0; i < players::get_configured_max_number_of_players(); i++) {
+            json assignment;
+            InputDevice device = profiles::get_assigned_input_device_for_player(static_cast<int>(i));
+            assignment["device"] = device;
+            if (device != InputDevice::COUNT) {
+                int profile_index = profiles::get_input_profile_for_player(static_cast<int>(i), device);
+                if (profile_index >= 0) {
+                    assignment["profile"] = profiles::get_input_profile_key(profile_index);
+                }
+            }
+            assignments.push_back(std::move(assignment));
+        }
+
         return recompinput::save_json_with_backups(path, config_json);
+    }
+
+    bool profiles::save_controls_config() {
+        return !controls_config_path.empty() && profiles::save_controls_config(controls_config_path);
     }
 
     static void assign_mapping(int profile_index, GameInput input, const std::vector<InputField>& value) {
@@ -504,12 +580,15 @@ namespace recompinput {
     }
 
     bool profiles::load_controls_config(const std::filesystem::path& path) {
+        controls_config_path = path;
         profiles::initialize_input_bindings();
+        profiles::clear_player_assignments();
 
         json config_json{};
         if (!recompinput::read_json_with_backups(path, config_json)) {
             assign_all_mappings(profiles::get_sp_keyboard_profile_index(), InputDevice::Keyboard);
             assign_all_mappings(profiles::get_sp_controller_profile_index(), InputDevice::Controller);
+            assign_default_player_one_if_unassigned();
             return false;
         }
 
@@ -517,6 +596,7 @@ namespace recompinput {
         if (version_it != config_json.end()) {
             auto profiles = config_json.find("profiles");
             if (profiles == config_json.end() || !profiles->is_array()) {
+                assign_default_player_one_if_unassigned();
                 return false;
             }
 
@@ -535,6 +615,7 @@ namespace recompinput {
 
             auto controllers = config_json.find("controllers");
             if (controllers == config_json.end() || !controllers->is_array()) {
+                assign_default_player_one_if_unassigned();
                 return false;
             }
 
@@ -559,6 +640,32 @@ namespace recompinput {
                 assign_all_mappings(profiles::get_sp_controller_profile_index(), InputDevice::Controller);
             }
         }
+
+        auto assignments = config_json.find("player_assignments");
+        if (assignments != config_json.end() && assignments->is_array()) {
+            for (size_t player_index = 0;
+                 player_index < std::min(assignments->size(), recompinput::max_num_players_supported); player_index++) {
+                const json& assignment = (*assignments)[player_index];
+                InputDevice device = assignment.value("device", InputDevice::COUNT);
+                std::string profile_key = assignment.value("profile", std::string());
+                int profile_index = profiles::get_input_profile_by_key(profile_key);
+
+                if (device != InputDevice::Keyboard && device != InputDevice::Controller) {
+                    continue;
+                }
+
+                if (profile_index < 0) {
+                    profile_index =
+                        device == InputDevice::Controller
+                            ? profiles::get_sp_controller_profile_index()
+                            : profiles::get_or_create_mp_keyboard_profile_index(static_cast<int>(player_index));
+                }
+                profiles::set_assigned_input_device_for_player(static_cast<int>(player_index), device);
+                profiles::set_input_profile_for_player(static_cast<int>(player_index), profile_index, device);
+            }
+        }
+
+        assign_default_player_one_if_unassigned();
 
         return true;
     }

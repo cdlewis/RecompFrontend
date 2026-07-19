@@ -15,9 +15,10 @@ namespace recompinput {
     };
 
     namespace players {
-        size_t get_number_of_assigned_players();
-        size_t get_max_number_of_players();
-        bool is_single_player_mode();
+size_t get_number_of_assigned_players();
+size_t get_max_number_of_players();
+size_t get_configured_max_number_of_players();
+bool is_single_player_mode();
         void set_single_player_mode(bool single_player);
         void assign_player_one_keyboard_if_unassigned();
         void set_min_number_of_players(size_t min_players);

@@ -47,6 +47,9 @@ namespace recompinput {
         const std::vector<int> get_indices_for_custom_profiles(InputDevice device);
         void set_input_profile_for_player(int player_index, int profile_index, InputDevice device);
         int get_input_profile_for_player(int player_index, InputDevice device);
+        void clear_player_assignments();
+        void set_assigned_input_device_for_player(int player_index, InputDevice device);
+        InputDevice get_assigned_input_device_for_player(int player_index);
         int add_controller(ControllerGUID guid, int profile_index);
         const ControllerGUID &get_controller_guid(int controller_index);
         int get_controller_profile_index(int controller_index);
@@ -65,6 +68,7 @@ namespace recompinput {
 
         bool load_controls_config(const std::filesystem::path& path);
         bool save_controls_config(const std::filesystem::path& path);
+        bool save_controls_config();
     }
 }
 

@@ -185,8 +185,8 @@ ConfigPageControls::ConfigPageControls(ResourceId rid, Element *parent) : Config
     controls_page = this;
     player_assignment_was_active = recompinput::playerassignment::is_active();
 
-    multiplayer_enabled = recompinput::players::is_single_player_mode() == false;
-    this->max_num_players = multiplayer_enabled ? recompinput::players::get_max_number_of_players() : 1;
+    this->max_num_players = recompinput::players::get_configured_max_number_of_players();
+    multiplayer_enabled = max_num_players > 1;
     multiplayer_view_mappings = !multiplayer_enabled;
 
     set_selected_player(selected_player);
@@ -513,9 +513,8 @@ void ConfigPageControls::render_player_assignment_actions(Element *parent) {
         confirm_assignment_button->set_debug_id("ConfirmPlayerAssignmentButton");
         confirm_assignment_button->set_width(180.0f);
         confirm_assignment_button->set_enabled(recompinput::playerassignment::met_assignment_requirements());
-        confirm_assignment_button->add_pressed_callback([this]() {
+        confirm_assignment_button->add_pressed_callback([]() {
             recompinput::playerassignment::apply_player_assignment();
-            this->force_update();
         });
 
         retry_assignment_button = context.create_element<Button>(action_row, "Retry", ButtonStyle::Secondary);
@@ -538,8 +537,7 @@ void ConfigPageControls::render_player_assignment_actions(Element *parent) {
 }
 
 void ConfigPageControls::on_select_player_profile(int player_index, int profile_index) {
-    auto& assigned_player = recompinput::players::get_player(player_index);
-    recompinput::InputDevice device = recompinput::players::get_player_input_device(player_index);
+    recompinput::InputDevice device = recompinput::profiles::get_assigned_input_device_for_player(player_index);
     if (device != recompinput::InputDevice::COUNT) {
         recompinput::profiles::set_input_profile_for_player(player_index, profile_index, device);
     }
@@ -547,7 +545,7 @@ void ConfigPageControls::on_select_player_profile(int player_index, int profile_
 
 void ConfigPageControls::on_edit_player_profile(int player_index) {
     selected_player = player_index;
-    recompinput::InputDevice device = recompinput::players::get_player_input_device(player_index);
+    recompinput::InputDevice device = recompinput::profiles::get_assigned_input_device_for_player(player_index);
     if (device != recompinput::InputDevice::COUNT) {
         selected_profile_index = recompinput::profiles::get_input_profile_for_player(player_index, device);
         multiplayer_view_mappings = true;
@@ -605,7 +603,7 @@ void ConfigPageControls::render_control_mappings() {
     body_left->set_height(100.0f, Unit::Percent);
     body_left->set_max_height(100.0f, Unit::Percent);
     body_left->set_overflow_y(Overflow::Auto);
-    
+
     {
         auto body_left_scroll = context.create_element<Element>(body_left, 0, "div", false);
         body_left_scroll->set_display(Display::Block);
@@ -729,7 +727,7 @@ void ConfigPageControls::update_control_mappings() {
 
 recompinput::InputDevice ConfigPageControls::get_player_input_device() {
     if (multiplayer_enabled) {
-        return recompinput::players::get_player_input_device(this->selected_player);
+        return recompinput::profiles::get_assigned_input_device_for_player(this->selected_player);
     }
 
     return single_player_show_keyboard_mappings

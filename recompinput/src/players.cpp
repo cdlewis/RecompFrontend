@@ -73,6 +73,10 @@ size_t players::get_max_number_of_players() {
     return PlayerState.max_players;
 }
 
+size_t players::get_configured_max_number_of_players() {
+    return PlayerState.max_players;
+}
+
 bool players::is_single_player_mode() {
     return PlayerState.single_player_mode;
 }

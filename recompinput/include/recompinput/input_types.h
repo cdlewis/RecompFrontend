@@ -111,6 +111,7 @@ namespace recompinput {
     NLOHMANN_JSON_SERIALIZE_ENUM(recompinput::InputDevice, {
         { recompinput::InputDevice::Controller, "Controller" },
         { recompinput::InputDevice::Keyboard, "Keyboard" },
+        { recompinput::InputDevice::COUNT, "Unassigned" },
     });
 
 
