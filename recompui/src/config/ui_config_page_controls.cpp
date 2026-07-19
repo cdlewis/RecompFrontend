@@ -372,7 +372,7 @@ void ConfigPageControls::render_body_mappings() {
         description_container->set_line_height(40.0f);
         description_container->set_color(theme::color::Text);
         description_container->set_width(100.0f, Unit::Percent);
-        description_container->set_margin_top(56.0f);
+        description_container->set_margin_top(0.0f);
         description_container->set_margin_bottom(4.0f);
         description_container->set_text("");
     }

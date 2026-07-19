@@ -1,27 +1,30 @@
 #include "ui_assign_players_modal.h"
 #include "elements/ui_label.h"
 #include "elements/ui_container.h"
+#include "elements/ui_frontend_theme.h"
 #include "recompui.h"
 
 namespace recompui {
+
+static constexpr float assignment_fade_duration = 0.18f;
 
 recompui::ContextId assign_players_modal_context;
 AssignPlayersModal* assign_players_modal_instance = nullptr;
 
 namespace localstyles {
-    namespace padding {
-        static const float horizontal = 20.0f;
-        static const float footer_vertical = 20.0f;
-        static const float header_vertical = 16.0f;
-    }
+namespace padding {
+static const float horizontal = 20.0f;
+static const float footer_vertical = 20.0f;
+static const float header_vertical = 16.0f;
+} // namespace padding
 
-    namespace gap {
-        static const float horizontal = 12.0f;
-        static const float vertical = 20.0f;
-    }
-}
+namespace gap {
+static const float horizontal = 12.0f;
+static const float vertical = 20.0f;
+} // namespace gap
+} // namespace localstyles
 
-static void set_button_side_styles(Element *el) {
+static void set_button_side_styles(Element* el) {
     el->set_align_items(AlignItems::Center);
     el->set_width_auto();
     el->set_height_auto();
@@ -29,19 +32,21 @@ static void set_button_side_styles(Element *el) {
     el->set_gap(localstyles::gap::horizontal);
 }
 
-AssignPlayersModal::AssignPlayersModal(ResourceId rid, Document *parent) : Element(rid, parent, Events(EventType::MenuAction), "div", false) {
+AssignPlayersModal::AssignPlayersModal(ResourceId rid, Document* parent)
+    : Element(rid, parent, Events(EventType::MenuAction), "div", false) {
     assign_players_modal_instance = this;
     recompui::ContextId context = get_current_context();
-    
+
     set_display(Display::Flex);
     set_flex_direction(FlexDirection::Column);
-    set_background_color(theme::color::Transparent);
+    const auto& assignment_theme = theme::get_frontend_theme().in_game_player_assignment;
+    apply_style(assignment_theme.page);
     set_display(Display::None);
     set_as_navigation_container(NavigationType::Auto);
-    set_debug_id("AssignPlayersModal");
+    set_debug_id("InGamePlayerAssignmentModal");
 
     Element* modal_overlay = context.create_element<Element>(this);
-    modal_overlay->set_background_color(theme::color::BGOverlay);
+    modal_overlay->apply_style(assignment_theme.page);
     modal_overlay->set_position(Position::Absolute);
     modal_overlay->set_top(0);
     modal_overlay->set_right(0);
@@ -59,6 +64,7 @@ AssignPlayersModal::AssignPlayersModal(ResourceId rid, Document *parent) : Eleme
     modal_whole_page_wrapper->set_justify_content(JustifyContent::Center);
 
     Element* modal = context.create_element<Element>(modal_whole_page_wrapper);
+    modal_surface = modal;
     modal->set_display(Display::Flex);
     modal->set_position(Position::Relative);
     modal->set_flex(1.0f, 1.0f);
@@ -66,13 +72,10 @@ AssignPlayersModal::AssignPlayersModal(ResourceId rid, Document *parent) : Eleme
     modal->set_flex_direction(FlexDirection::Column);
     modal->set_width(100, Unit::Percent);
     modal->set_gap(localstyles::gap::vertical);
-    modal->set_max_width(700, Unit::Dp);
+    modal->set_max_width(1120, Unit::Dp);
     modal->set_height_auto();
     modal->set_margin_auto();
-    modal->set_border_width(theme::border::width);
-    modal->set_border_radius(theme::border::radius_lg);
-    modal->set_border_color(theme::color::Border);
-    modal->set_background_color(theme::color::ModalOverlay);
+    modal->apply_style(assignment_theme.content);
 
     fake_focus_button = context.create_element<Element>(modal, 0, "button", false);
     fake_focus_button->set_position(Position::Absolute);
@@ -89,7 +92,16 @@ AssignPlayersModal::AssignPlayersModal(ResourceId rid, Document *parent) : Eleme
     header->set_padding_left(localstyles::padding::horizontal);
     header->set_padding_right(localstyles::padding::horizontal);
 
-    context.create_element<Label>(header, "Assign Players", theme::Typography::Header3);
+    auto heading = context.create_element<Label>(header, "Assign Controllers", theme::Typography::Header2);
+    heading->apply_style(assignment_theme.heading);
+
+    description_label = context.create_element<Label>(header, "", LabelStyle::Small);
+    description_label->set_margin_top(28.0f);
+    description_label->set_font_size(30.0f);
+    description_label->set_line_height(40.0f);
+    description_label->set_max_width(1120.0f);
+    description_label->set_white_space(WhiteSpace::Normal);
+    description_label->apply_style(assignment_theme.description);
 
     player_elements_wrapper = context.create_element<Element>(modal, 0, "div", false);
     player_elements_wrapper->set_width(100, Unit::Percent);
@@ -97,6 +109,8 @@ AssignPlayersModal::AssignPlayersModal(ResourceId rid, Document *parent) : Eleme
     player_elements_wrapper->set_padding_right(localstyles::padding::horizontal);
     player_elements_wrapper->set_padding_top(0);
     player_elements_wrapper->set_padding_bottom(0);
+    player_elements_wrapper->set_margin_top(36.0f);
+    player_elements_wrapper->set_margin_bottom(36.0f);
 
     Element* footer = context.create_element<Element>(modal, 0, "div", false);
     footer->set_display(Display::Flex);
@@ -104,27 +118,23 @@ AssignPlayersModal::AssignPlayersModal(ResourceId rid, Document *parent) : Eleme
     footer->set_flex_direction(FlexDirection::Row);
     footer->set_as_navigation_container(NavigationType::Horizontal);
     footer->set_align_items(AlignItems::Center);
-    footer->set_justify_content(JustifyContent::SpaceBetween);
+    footer->set_justify_content(JustifyContent::FlexEnd);
     footer->set_width(100.0f, Unit::Percent);
     footer->set_height_auto();
 
-    footer->set_padding_top(0);
+    footer->set_border_top_width(3.0f);
+    footer->set_border_top_color(Color{ 255, 255, 255, 128 });
+    footer->set_padding_top(28.0f);
     footer->set_padding_bottom(localstyles::padding::footer_vertical);
     footer->set_padding_left(localstyles::padding::horizontal);
     footer->set_padding_right(localstyles::padding::horizontal);
 
-    auto left = context.create_element<Container>(footer, FlexDirection::Row, JustifyContent::FlexStart, 0);
-    set_button_side_styles(left);
-    keep_players_button = context.create_element<Button>(left, "Keep players", ButtonStyle::Tertiary);
-    keep_players_button->set_debug_id("KeepPlayersButton");
-    keep_players_button->add_pressed_callback(recompinput::playerassignment::stop_and_close_modal);
-    keep_players_button->set_enabled(false);
-
     auto right = context.create_element<Container>(footer, FlexDirection::Row, JustifyContent::FlexEnd, 0);
+    right->set_justify_content(JustifyContent::FlexEnd);
     retry_button = context.create_element<Button>(right, "Retry", ButtonStyle::Warning);
     retry_button->set_debug_id("RetryPlayerAssignmentButton");
     retry_button->set_enabled(false);
-    retry_button->add_pressed_callback([this](){
+    retry_button->add_pressed_callback([this]() {
         this->set_fake_focus_enabled(true);
         this->fake_focus_button->focus();
         recompinput::playerassignment::start();
@@ -133,9 +143,29 @@ AssignPlayersModal::AssignPlayersModal(ResourceId rid, Document *parent) : Eleme
 
     confirm_button = context.create_element<Button>(right, "Confirm", ButtonStyle::Primary);
     confirm_button->set_debug_id("ConfirmPlayerAssignmentButton");
-    confirm_button->set_enabled(false);
-    confirm_button->add_pressed_callback(recompinput::playerassignment::commit_player_assignment);
+    confirm_button->add_pressed_callback([]() {
+        recompinput::playerassignment::apply_player_assignment();
+        AssignPlayersModal::close();
+    });
     set_button_side_styles(right);
+
+    auto apply_button_theme = [&assignment_theme](Button* button) {
+        button->apply_style(assignment_theme.button.normal);
+        button->get_hover_style()->apply_style(assignment_theme.button.hover);
+        button->get_focus_style()->apply_style(assignment_theme.button.focus);
+        button->get_disabled_style()->apply_style(assignment_theme.button.disabled);
+        button->apply_styles();
+    };
+    apply_button_theme(retry_button);
+    apply_button_theme(confirm_button);
+    confirm_button->set_color(Color{ 0, 0, 0, 255 });
+    confirm_button->set_background_color(Color{ 242, 242, 242, 255 });
+    confirm_button->set_border_color(Color{ 255, 255, 255, 255 });
+    confirm_button->get_hover_style()->set_color(Color{ 0, 0, 0, 255 });
+    confirm_button->get_hover_style()->set_background_color(Color{ 255, 255, 255, 255 });
+    confirm_button->get_hover_style()->set_border_color(Color{ 255, 255, 255, 255 });
+    confirm_button->get_focus_style()->apply_style(*confirm_button->get_hover_style());
+    confirm_button->apply_styles();
 }
 
 AssignPlayersModal::~AssignPlayersModal() {
@@ -148,27 +178,10 @@ void AssignPlayersModal::set_fake_focus_enabled(bool enabled) {
 }
 
 void AssignPlayersModal::init_pending_state() {
-    if (recompinput::playerassignment::is_active()) {
-        keep_players_button->set_display(Display::None);
-        keep_players_button->set_enabled(false);
-        retry_button->set_enabled(false);
-        retry_button->set_text("Retry");
-        confirm_button->set_display(Display::Flex);
-    } else {
-        keep_players_button->set_display(Display::Flex);
-        retry_button->set_enabled(true);
-        retry_button->set_text("Reassign");
-
-        if (recompinput::players::has_enough_players_assigned()) {
-            keep_players_button->set_enabled(true);
-            keep_players_button->focus();
-        } else {
-            keep_players_button->set_enabled(false);
-            retry_button->focus();
-        }
-
-        confirm_button->set_display(Display::None);
-    }
+    assignment_complete = recompinput::playerassignment::met_assignment_requirements();
+    confirm_focus_pending = assignment_complete;
+    retry_button->set_enabled(assignment_complete);
+    confirm_button->set_enabled(assignment_complete);
 }
 
 void AssignPlayersModal::lock_focus(bool lock) {
@@ -179,7 +192,7 @@ void AssignPlayersModal::lock_focus(bool lock) {
         }
         fake_focus_button->focus();
     } else {
-        Element *fake_focus_as_element = static_cast<Element*>(fake_focus_button);
+        Element* fake_focus_as_element = static_cast<Element*>(fake_focus_button);
         // Remove fake focus button if focus is elsewhere.
         if (fake_focus_button->is_enabled() && fake_focus_as_element != get_current_context().get_focused_element()) {
             set_fake_focus_enabled(false);
@@ -187,11 +200,29 @@ void AssignPlayersModal::lock_focus(bool lock) {
     }
 }
 
-void AssignPlayersModal::process_event(const Event &e) {
+void AssignPlayersModal::process_event(const Event& e) {
     if (!is_open) {
         return;
     }
     if (e.type == EventType::Update) {
+        if (is_closing) {
+            if (std::chrono::steady_clock::now() - fade_out_started >=
+                std::chrono::duration<float>(assignment_fade_duration)) {
+                if (is_fading_to_game) {
+                    finish_close();
+                    return;
+                }
+
+                is_fading_to_game = true;
+                fade_out_started = std::chrono::steady_clock::now();
+                animate_property(
+                    Rml::PropertyId::Opacity, Rml::Property(0.0f, Rml::Unit::NUMBER), assignment_fade_duration,
+                    Rml::Tween{ Rml::Tween::Quadratic, Rml::Tween::In });
+            }
+            queue_update();
+            return;
+        }
+
         if (player_elements.empty() ||
             player_elements.size() != recompinput::players::get_assignment_max_number_of_players()) {
             create_player_elements();
@@ -201,10 +232,21 @@ void AssignPlayersModal::process_event(const Event &e) {
             player_elements[i]->update_assignment_player_card();
         }
 
+        if (confirm_focus_pending && confirm_button->focus()) {
+            confirm_focus_pending = false;
+            set_fake_focus_enabled(false);
+        }
+
         if (recompinput::playerassignment::is_active()) {
             bool met_assignment_reqs = recompinput::playerassignment::met_assignment_requirements();
-            lock_focus(!met_assignment_reqs);
             confirm_button->set_enabled(met_assignment_reqs);
+            if (!met_assignment_reqs) {
+                confirm_focus_pending = false;
+                lock_focus(true);
+            } else if (!assignment_complete) {
+                confirm_focus_pending = true;
+            }
+            assignment_complete = met_assignment_reqs;
             retry_button->set_enabled(met_assignment_reqs);
         } else {
             lock_focus(false);
@@ -219,15 +261,15 @@ void AssignPlayersModal::create_player_elements() {
     player_elements.clear();
     recompui::ContextId context = get_current_context();
 
-    Element *row_wrapper = nullptr;
+    Element* row_wrapper = nullptr;
 
     int max_players = static_cast<int>(recompinput::players::get_assignment_max_number_of_players());
 
     bool should_scroll = max_players > 12;
     if (should_scroll) {
         player_elements_wrapper->set_overflow_y(Overflow::Auto);
-        player_elements_wrapper->set_max_height(
-            PlayerCard::assign_player_card_size * 3.5f + localstyles::gap::vertical * 2 + localstyles::gap::vertical * 2);
+        player_elements_wrapper->set_max_height(PlayerCard::assign_player_card_size * 3.5f +
+                                                localstyles::gap::vertical * 2 + localstyles::gap::vertical * 2);
         player_elements_wrapper->set_padding_top(localstyles::gap::vertical);
         player_elements_wrapper->set_padding_bottom(localstyles::gap::vertical);
         player_elements_wrapper->set_border_top_width(theme::border::width);
@@ -235,7 +277,7 @@ void AssignPlayersModal::create_player_elements() {
         player_elements_wrapper->set_border_color(theme::color::Border);
     } else {
         player_elements_wrapper->set_max_height(1080); // Arbitrary large number to disable max height.
-        player_elements_wrapper->set_overflow_y(Overflow::Auto);
+        player_elements_wrapper->set_overflow_y(Overflow::Visible);
         player_elements_wrapper->set_padding_top(0);
         player_elements_wrapper->set_padding_bottom(0);
         player_elements_wrapper->set_border_top_width(0);
@@ -248,15 +290,16 @@ void AssignPlayersModal::create_player_elements() {
             row_wrapper = context.create_element<Element>(player_elements_wrapper, 0, "div", false);
             row_wrapper->set_display(Display::Flex);
             row_wrapper->set_flex_direction(FlexDirection::Row);
-            row_wrapper->set_justify_content(JustifyContent::SpaceBetween);
+            row_wrapper->set_justify_content(JustifyContent::Center);
             row_wrapper->set_align_items(AlignItems::Center);
             row_wrapper->set_width(100.0f, Unit::Percent);
             row_wrapper->set_gap(localstyles::gap::horizontal);
             row_wrapper->set_as_navigation_container(NavigationType::Horizontal);
             row_wrapper->set_debug_id("PlayerCardRowWrapper" + std::to_string(i / 4));
         }
-        
-        PlayerCard* player_element = context.create_element<PlayerCard>(row_wrapper, i, true);
+
+        PlayerCard* player_element =
+            context.create_element<PlayerCard>(row_wrapper, i, true, PlayerCardVisualStyle::InGameAssignment);
         if (should_scroll) {
             // Padding ensures that when focused via controller nav the card is fully visible.
             // Negative margin collapses the extra space.
@@ -288,7 +331,7 @@ void AssignPlayersModal::open() {
     if (!recompui::is_context_shown(assign_players_modal_context)) {
         recompui::show_context(assign_players_modal_context, "");
     }
-    
+
     assign_players_modal_context.open();
     size_t player_count = recompinput::players::get_assignment_max_number_of_players();
     assign_players_modal_instance->description_label->set_text(
@@ -296,7 +339,15 @@ void AssignPlayersModal::open() {
         "-player game, so each player needs an input device. Starting with Player 1, press any key on the "
         "keyboard or any button on that player's controller.");
     assign_players_modal_instance->is_open = true;
+    assign_players_modal_instance->is_closing = false;
+    assign_players_modal_instance->is_fading_to_game = false;
+    assign_players_modal_instance->set_pointer_events(PointerEvents::Auto);
     assign_players_modal_instance->set_display(Display::Block);
+    assign_players_modal_instance->set_opacity(1.0f);
+    assign_players_modal_instance->modal_surface->set_opacity(0.0f);
+    assign_players_modal_instance->modal_surface->animate_property(
+        Rml::PropertyId::Opacity, Rml::Property(1.0f, Rml::Unit::NUMBER), assignment_fade_duration,
+        Rml::Tween{ Rml::Tween::Quadratic, Rml::Tween::Out });
     assign_players_modal_instance->create_player_elements();
     assign_players_modal_instance->init_pending_state();
     assign_players_modal_instance->queue_update();
@@ -307,17 +358,38 @@ void AssignPlayersModal::open() {
     }
 }
 
-void AssignPlayersModal::close(bool) {
+void AssignPlayersModal::finish_close() {
+    set_display(Display::None);
+    if (recompui::is_context_shown(assign_players_modal_context)) {
+        recompui::hide_context(assign_players_modal_context);
+    }
+    is_open = false;
+    is_closing = false;
+    is_fading_to_game = false;
+    set_opacity(1.0f);
+}
+
+void AssignPlayersModal::close(bool animate) {
     if (assign_players_modal_instance == nullptr) {
         return;
     }
 
-    if (recompui::is_context_shown(assign_players_modal_context)) {
-        assign_players_modal_instance->set_display(Display::None);
-        recompui::hide_context(assign_players_modal_context);
+    if (!assign_players_modal_instance->is_open) {
+        return;
     }
 
-    assign_players_modal_instance->is_open = false;
+    if (!animate || !recompui::is_context_shown(assign_players_modal_context)) {
+        assign_players_modal_instance->finish_close();
+        return;
+    }
+
+    assign_players_modal_instance->is_closing = true;
+    assign_players_modal_instance->fade_out_started = std::chrono::steady_clock::now();
+    assign_players_modal_instance->set_pointer_events(PointerEvents::None);
+    assign_players_modal_instance->modal_surface->animate_property(
+        Rml::PropertyId::Opacity, Rml::Property(0.0f, Rml::Unit::NUMBER), assignment_fade_duration,
+        Rml::Tween{ Rml::Tween::Quadratic, Rml::Tween::In });
+    assign_players_modal_instance->queue_update();
 }
 
 bool AssignPlayersModal::is_open_now() {

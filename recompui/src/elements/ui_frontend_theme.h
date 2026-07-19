@@ -54,13 +54,26 @@ struct FrontendTheme {
         TogglePreset input_device_toggle = TogglePreset::Default;
     } controls;
     struct {
+        Style page;
+        Style content;
+        Style heading;
+        Style description;
+        Color card_border = get_theme_color(color::BorderSoft);
+        Color card_label = get_theme_color(color::TextDim);
+        Color card_waiting = get_theme_color(color::TextDim);
+        Color card_active = get_theme_color(color::PrimaryL);
+        Color card_assigned = get_theme_color(color::Text);
+        Color card_assigned_background = get_theme_color(color::PrimaryA20);
+        InteractiveStyle button;
+    } in_game_player_assignment;
+    struct {
         Style details;
         TogglePreset enable_toggle = TogglePreset::Default;
     } mods;
 };
 
 FrontendTheme make_default_frontend_theme();
-void set_frontend_theme(const FrontendTheme &frontend_theme);
-const FrontendTheme &get_frontend_theme();
+void set_frontend_theme(const FrontendTheme& frontend_theme);
+const FrontendTheme& get_frontend_theme();
 
 } // namespace recompui::theme

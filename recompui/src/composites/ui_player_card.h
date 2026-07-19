@@ -14,22 +14,21 @@ using on_select_player_profile_callback = std::function<void(int, int)>;
 // player index
 using on_edit_player_profile_callback = std::function<void(int)>;
 
-enum class PlayerCardIcon {
-    None,
-    Keyboard,
-    Controller,
-    Waiting,
-    Recording
+enum class PlayerCardIcon { None, Keyboard, Controller, Waiting, Recording };
+
+enum class PlayerCardVisualStyle {
+    Default,
+    InGameAssignment,
 };
 
 class PlayerCard : public Element {
-protected:
+  protected:
     bool is_open = false;
-    Element *card = nullptr;
+    Element* card = nullptr;
     Svg* icon = nullptr;
-    Select *profile_select = nullptr;
-    PillButton *multiplayer_pill = nullptr;
-    Button *edit_profile_button = nullptr;
+    Select* profile_select = nullptr;
+    PillButton* multiplayer_pill = nullptr;
+    Button* edit_profile_button = nullptr;
     int player_index = -1;
     bool is_assignment_card = false;
     bool show_assignment_state = false;
@@ -37,20 +36,27 @@ protected:
     bool was_player_assigning = false;
     bool queue_focus_on_edit_profile_button = false;
     bool force_instant_scroll = false;
+    PlayerCardVisualStyle visual_style = PlayerCardVisualStyle::Default;
+    Element* assignment_player_label = nullptr;
 
     on_select_player_profile_callback on_select_profile_callback;
     on_edit_player_profile_callback on_edit_profile_callback;
 
-    virtual void process_event(const Event &e) override;
-    std::string_view get_type_name() override { return "PlayerCard"; }
-private:
+    virtual void process_event(const Event& e) override;
+    std::string_view get_type_name() override {
+        return "PlayerCard";
+    }
+
+  private:
     void on_select_player_profile(int profile_index);
     void on_edit_profile();
     void create_add_multiplayer_pill();
     bool uses_assignment_state() const;
     void set_profile_controls_enabled(bool enabled);
-public:
-    PlayerCard(ResourceId rid, Element *parent, int player_index, bool is_assignment_card = false);
+
+  public:
+    PlayerCard(ResourceId rid, Element* parent, int player_index, bool is_assignment_card = false,
+               PlayerCardVisualStyle visual_style = PlayerCardVisualStyle::Default);
     virtual ~PlayerCard();
     void update_assignment_player_card();
     void update_player_card_icon();
@@ -72,6 +78,9 @@ public:
 
     static constexpr float assign_player_card_size = 128.0f;
     static constexpr float assign_player_card_icon_size = 64.0f;
+
+    static constexpr float in_game_assignment_card_size = 192.0f;
+    static constexpr float in_game_assignment_card_icon_size = 96.0f;
 
     static constexpr float static_player_card_size = 256.0f;
     static constexpr float static_player_card_icon_size = 128.0f;
