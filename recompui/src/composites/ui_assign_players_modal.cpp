@@ -192,11 +192,12 @@ void AssignPlayersModal::process_event(const Event &e) {
         return;
     }
     if (e.type == EventType::Update) {
-        if (player_elements.empty() || player_elements.size() != recompinput::players::get_max_number_of_players()) {
+        if (player_elements.empty() ||
+            player_elements.size() != recompinput::players::get_assignment_max_number_of_players()) {
             create_player_elements();
         }
 
-        for (size_t i = 0; i < recompinput::players::get_max_number_of_players(); i++) {
+        for (size_t i = 0; i < recompinput::players::get_assignment_max_number_of_players(); i++) {
             player_elements[i]->update_assignment_player_card();
         }
 
@@ -210,27 +211,6 @@ void AssignPlayersModal::process_event(const Event &e) {
         }
 
         queue_update();
-    } else if (e.type == EventType::MenuAction) {
-        if (recompinput::playerassignment::is_blocking_input()) {
-            return;
-        }
-
-        auto& action = std::get<EventMenuAction>(e.variant);
-        switch (action.action) {
-            case MenuAction::Back: {
-                ContextId context = get_current_context();
-                Element *close_as_element = static_cast<Element*>(keep_players_button);
-                if (context.get_focused_element() == close_as_element) {
-                    recompinput::playerassignment::stop_and_close_modal();
-                } else {
-                    keep_players_button->focus();
-                }
-                break;
-            }
-            default: {
-                break;
-            }
-        }
     }
 }
 
@@ -241,7 +221,7 @@ void AssignPlayersModal::create_player_elements() {
 
     Element *row_wrapper = nullptr;
 
-    int max_players = static_cast<int>(recompinput::players::get_max_number_of_players());
+    int max_players = static_cast<int>(recompinput::players::get_assignment_max_number_of_players());
 
     bool should_scroll = max_players > 12;
     if (should_scroll) {
@@ -310,6 +290,11 @@ void AssignPlayersModal::open() {
     }
     
     assign_players_modal_context.open();
+    size_t player_count = recompinput::players::get_assignment_max_number_of_players();
+    assign_players_modal_instance->description_label->set_text(
+        "You selected a " + std::to_string(player_count) +
+        "-player game, so each player needs an input device. Starting with Player 1, press any key on the "
+        "keyboard or any button on that player's controller.");
     assign_players_modal_instance->is_open = true;
     assign_players_modal_instance->set_display(Display::Block);
     assign_players_modal_instance->create_player_elements();
@@ -322,7 +307,7 @@ void AssignPlayersModal::open() {
     }
 }
 
-void AssignPlayersModal::close() {
+void AssignPlayersModal::close(bool) {
     if (assign_players_modal_instance == nullptr) {
         return;
     }
@@ -333,6 +318,10 @@ void AssignPlayersModal::close() {
     }
 
     assign_players_modal_instance->is_open = false;
+}
+
+bool AssignPlayersModal::is_open_now() {
+    return assign_players_modal_instance != nullptr && assign_players_modal_instance->is_open;
 }
 
 void AssignPlayersModal::init() {

@@ -36,6 +36,11 @@
 static std::atomic_bool cursor_enabled = true;
 
 void recompui::open_quit_game_prompt() {
+    bool reopen_player_assignment = AssignPlayersModal::is_open_now();
+    if (reopen_player_assignment) {
+        AssignPlayersModal::close(false);
+    }
+
     recompui::open_choice_prompt(
         "Are you sure you want to quit?",
         "Any progress since your last save will be lost.",
@@ -44,7 +49,11 @@ void recompui::open_quit_game_prompt() {
         []() {
             ultramodern::quit();
         },
-        []() {},
+        [reopen_player_assignment]() {
+            if (reopen_player_assignment) {
+                AssignPlayersModal::open();
+            }
+        },
         recompui::ButtonStyle::Danger,
         recompui::ButtonStyle::Tertiary,
         true
@@ -683,6 +692,8 @@ void draw_hook(plume::RenderCommandList* command_list, plume::RenderFramebuffer*
     }
 
     std::lock_guard lock{ ui_state_mutex };
+
+    recompinput::players::apply_pending_game_player_count();
 
     SDL_Event cur_event{};
 

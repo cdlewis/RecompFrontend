@@ -367,11 +367,10 @@ bool recompinput::game_input_disabled() {
     return recompui::is_context_capturing_input();
 }
 
-// Disable all input if an input is being polled or currently binding.
+// Assignment happens inside an input-capturing UI context, so its SDL events must continue reaching the UI.
+// Disable all UI input only while an individual binding is being scanned.
 bool recompinput::all_input_disabled() {
-    return
-        recompinput::playerassignment::is_blocking_input() ||
-        recompinput::binding::is_binding();
+    return recompinput::binding::is_binding();
 }
 
 ControllerState &recompinput::get_controller_state(SDL_JoystickID joystick_id) {

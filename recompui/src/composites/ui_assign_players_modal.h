@@ -34,7 +34,8 @@ public:
     static void init();
     // Pass false to force player assignment.
     static void open();
-    static void close();
+    static void close(bool animate = true);
+    static bool is_open_now();
 };
 
 } // namespace recompui
