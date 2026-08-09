@@ -182,6 +182,10 @@ bool playerassignment::is_active() {
     return PlayerState.is_assigning;
 }
 
+bool playerassignment::is_game_assignment_active() {
+    return PlayerState.game_assignment_active;
+}
+
 void playerassignment::start(void) {
     PlayerState.is_assigning = true;
     PlayerState.temp_players = PlayerArray{};

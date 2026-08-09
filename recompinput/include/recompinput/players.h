@@ -37,6 +37,7 @@ InputDevice get_player_input_device(int player_index, bool temp_player = false);
 
 namespace playerassignment {
 bool is_active();
+bool is_game_assignment_active();
 void start();
 void stop();
 void stop_and_close_modal();

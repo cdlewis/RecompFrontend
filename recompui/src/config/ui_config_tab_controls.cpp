@@ -16,9 +16,11 @@ void config::create_controls_tab(const std::string &name) {
         },
         nullptr,
         [](TabCloseContext close_context) {
-            // Reassignment is scoped to the visible Controls tab. Do not keep
-            // consuming keyboard/controller input after the user leaves it.
-            recompinput::playerassignment::stop();
+            // Reassignment started from this tab is scoped to the visible Controls flow. A game-requested assignment
+            // modal can be temporarily covered by this menu and must remain active when the menu closes.
+            if (!recompinput::playerassignment::is_game_assignment_active()) {
+                recompinput::playerassignment::stop();
+            }
 
             // Save the current control mappings when closing the controls tab.
             recompinput::profiles::save_controls_config(recomp::get_config_path() / (config::controls::id + ".json"));
