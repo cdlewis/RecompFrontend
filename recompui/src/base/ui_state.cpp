@@ -1079,7 +1079,12 @@ void recompui::drop_files(const std::list<std::filesystem::path> &file_list) {
     }
 
     recompui::config::set_tab(recompui::config::mods::id);
+    const bool launcher_shown = recompui::is_context_shown(recompui::get_launcher_context_id());
     recompui::hide_all_contexts();
+    // Preserve the launcher's artwork behind the mod menu when installing files.
+    if (launcher_shown) {
+        recompui::show_context(recompui::get_launcher_context_id(), "");
+    }
     recompui::config::open();
 
     recompui::open_notification("Installing Mods", "Please Wait");
