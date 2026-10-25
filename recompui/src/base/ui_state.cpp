@@ -525,7 +525,8 @@ public:
 };
 
 std::unique_ptr<UIState> ui_state;
-std::recursive_mutex ui_state_mutex{};
+// UI callbacks and SDL input handling share profile/player state, including the controls save file.
+std::recursive_mutex& ui_state_mutex = recompinput::get_input_mutex();
 
 // TODO make this not be global
 extern SDL_Window* window;
@@ -603,21 +604,27 @@ Rml::Input::KeyIdentifier convert_sdl_to_rml(int sdl_key) {
 }
 
 bool check_menu_button_pressed(int profile_index, recompinput::GameInput input, int32_t event_button) {
+    if (profile_index < 0) {
+        return false;
+    }
     auto menuBinding0 = recompinput::profiles::get_input_binding(profile_index, input, 0);
     auto menuBinding1 = recompinput::profiles::get_input_binding(profile_index, input, 1);
-    if ((menuBinding0.input_type != recompinput::InputType::None && event_button == menuBinding0.input_id) ||
-        (menuBinding1.input_type != recompinput::InputType::None && event_button == menuBinding1.input_id)) {
+    if ((menuBinding0.input_type == recompinput::InputType::ControllerDigital &&
+         event_button == menuBinding0.input_id) ||
+        (menuBinding1.input_type == recompinput::InputType::ControllerDigital &&
+         event_button == menuBinding1.input_id)) {
         return true;
     }
     return false;
 }
 
 int cont_button_to_key(SDL_ControllerButtonEvent& button) {
-    int player1_profile = recompinput::profiles::get_input_profile_for_player(0, recompinput::InputDevice::Controller);
+    auto* controller = recompinput::get_controller_from_joystick_id(button.which);
+    int profile_index = recompinput::profiles::get_controller_profile_index_for_menu(controller);
 
     for (const auto& mapping_pair : recompui::menu_action_mapping::rml_key_to_action) {
         const auto& mapping = mapping_pair.second;
-        if (check_menu_button_pressed(player1_profile, mapping.input, button.button)) {
+        if (check_menu_button_pressed(profile_index, mapping.input, button.button)) {
             return mapping.sdl;
         }
     }
@@ -879,14 +886,8 @@ void draw_hook(plume::RenderCommandList* command_list, plume::RenderFramebuffer*
             case SDL_EventType::SDL_CONTROLLERBUTTONDOWN: {
                 SDL_ControllerButtonEvent* button_event = &cur_event.cbutton;
                 SDL_JoystickID joystick_id = button_event->which;
-                int profile_index;
-                if (recompinput::players::is_single_player_mode()) {
-                    profile_index = recompinput::profiles::get_sp_controller_profile_index();
-                }
-                else {
-                    auto controller = recompinput::get_controller_from_joystick_id(joystick_id);
-                    profile_index = recompinput::profiles::get_controller_profile_index_from_sdl_controller(controller);
-                }
+                auto* controller = recompinput::get_controller_from_joystick_id(joystick_id);
+                int profile_index = recompinput::profiles::get_controller_profile_index_for_menu(controller);
 
                 if (check_menu_button_pressed(profile_index, recompinput::GameInput::TOGGLE_MENU, cur_event.cbutton.button)) {
                     open_config = true;

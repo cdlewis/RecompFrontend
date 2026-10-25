@@ -540,6 +540,15 @@ void ConfigPageControls::on_select_player_profile(int player_index, int profile_
     recompinput::InputDevice device = recompinput::profiles::get_assigned_input_device_for_player(player_index);
     if (device != recompinput::InputDevice::COUNT) {
         recompinput::profiles::set_input_profile_for_player(player_index, profile_index, device);
+        if (device == recompinput::InputDevice::Controller &&
+            recompinput::players::get_player_is_assigned(player_index)) {
+            auto* controller = recompinput::players::get_player(player_index).controller;
+            auto guid = recompinput::profiles::get_guid_from_sdl_controller(controller);
+            if (guid.hash != 0) {
+                recompinput::profiles::add_controller(guid, profile_index);
+            }
+        }
+        recompinput::profiles::save_controls_config();
     }
 }
 
@@ -585,6 +594,7 @@ void ConfigPageControls::render_footer() {
         auto reset_to_defaults_button = context.create_element<Button>(footer_right, "Reset to defaults", ButtonStyle::Warning);
         reset_to_defaults_button->add_pressed_callback([this]() {
             recompinput::profiles::reset_profile_bindings(this->selected_profile_index, this->get_player_input_device());
+            recompinput::profiles::save_controls_config();
             this->update_control_mappings();
         });
     }
@@ -750,6 +760,7 @@ void ConfigPageControls::on_clear_or_reset_game_input(recompinput::GameInput gam
         recompinput::InputDevice device = get_player_input_device();
         recompinput::profiles::reset_input_binding(selected_profile_index, device, game_input);
     }
+    recompinput::profiles::save_controls_config();
     update_control_mappings();
 }
 

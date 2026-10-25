@@ -9,12 +9,14 @@
 
 namespace recompinput {
     struct ControllerGUID {
-        uint64_t hash;
+        uint64_t hash{};
         std::string serial;
         int vendor{};
         int product{};
         int version{};
         int crc16{};
+
+        void recompute_hash();
     };
 
     inline void to_json(nlohmann::json& j, const ControllerGUID& guid) {
@@ -27,9 +29,11 @@ namespace recompinput {
         j.at("product").get_to(guid.product);
         j.at("version").get_to(guid.version);
         j.at("crc16").get_to(guid.crc16);
+        guid.recompute_hash();
     }
 
     namespace profiles {
+        // Hold get_input_mutex() across multi-call updates and while using references returned by these functions.
         constexpr int controls_config_version = 3;
 
         recompinput::InputField& get_input_binding(int profile_index, GameInput input, size_t binding_index);
@@ -57,6 +61,7 @@ namespace recompinput {
         int get_controller_count();
         ControllerGUID get_guid_from_sdl_controller(SDL_GameController *game_controller);
         int get_controller_profile_index_from_sdl_controller(SDL_GameController *game_controller);
+        int get_controller_profile_index_for_menu(SDL_GameController *game_controller);
         std::string get_mp_keyboard_profile_key(int player_index);
         std::string get_mp_keyboard_profile_name(int player_index);
         void initialize_input_bindings();

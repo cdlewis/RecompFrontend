@@ -2,8 +2,12 @@
 
 #include "SDL.h"
 #include "chrono"
+#include <mutex>
 
 namespace recompinput {
+    // Shared with the UI state lock. Hold across multi-call input/profile transactions and borrowed references.
+    std::recursive_mutex& get_input_mutex();
+
     constexpr size_t max_num_players_supported = 128;
     constexpr size_t num_bindings_per_input = 2;
     inline const std::string unknown_device_input = "UNKNOWN";

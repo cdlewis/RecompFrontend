@@ -63,6 +63,22 @@ static const std::array n64_button_values = {
 using json = nlohmann::json;
 
 namespace recompinput {
+    std::recursive_mutex& get_input_mutex() {
+        static std::recursive_mutex mutex;
+        return mutex;
+    }
+
+    void ControllerGUID::recompute_hash() {
+        XXH3_state_t state;
+        XXH3_64bits_reset(&state);
+        XXH3_64bits_update(&state, &vendor, sizeof(vendor));
+        XXH3_64bits_update(&state, &product, sizeof(product));
+        XXH3_64bits_update(&state, &version, sizeof(version));
+        XXH3_64bits_update(&state, &crc16, sizeof(crc16));
+        XXH3_64bits_update(&state, serial.data(), serial.size());
+        hash = XXH3_64bits_digest(&state);
+    }
+
     // Due to an RmlUi limitation this can't be const. Ideally it would return a const reference or even just a straight up copy.
     recompinput::InputField& profiles::get_input_binding(int profile_index, GameInput input, size_t binding_index) {
         input_mapping& cur_input_mapping = input_profiles[profile_index].mappings.at(static_cast<size_t>(input));
@@ -76,6 +92,7 @@ namespace recompinput {
     }
 
     void profiles::set_input_binding(int profile_index, GameInput input, size_t binding_index, InputField value) {
+        std::lock_guard lock{ get_input_mutex() };
         input_mapping& cur_input_mapping = input_profiles[profile_index].mappings.at(static_cast<size_t>(input));
         if (binding_index < cur_input_mapping.size()) {
             cur_input_mapping[binding_index] = value;
@@ -83,12 +100,14 @@ namespace recompinput {
     }
 
     void profiles::clear_input_binding(int profile_index, GameInput input) {
+        std::lock_guard lock{ get_input_mutex() };
         for (size_t binding_index = 0; binding_index < recompinput::num_bindings_per_input; binding_index++) {
             profiles::set_input_binding(profile_index, input, binding_index, InputField{});
         }
     }
 
     void profiles::reset_input_binding(int profile_index, InputDevice device, GameInput input) {
+        std::lock_guard lock{ get_input_mutex() };
         std::vector<InputField> new_mappings = recompinput::get_default_mapping_for_input(device, input);
         for (size_t binding_index = 0; binding_index < recompinput::num_bindings_per_input; binding_index++) {
             if (binding_index >= new_mappings.size()) {
@@ -113,6 +132,7 @@ namespace recompinput {
     }
 
     void profiles::reset_profile_bindings(int profile_index, InputDevice device) {
+        std::lock_guard lock{ get_input_mutex() };
         const bool clear_bindings = device == InputDevice::Keyboard && get_mp_keyboard_player_index(profile_index) > 0;
         for (size_t i = 0; i < recompinput::num_game_inputs; i++) {
             GameInput input = static_cast<GameInput>(i);
@@ -133,6 +153,7 @@ namespace recompinput {
     }
 
     int profiles::add_input_profile(const std::string &key, const std::string &name, InputDevice device, bool custom) {
+        std::lock_guard lock{ get_input_mutex() };
         auto it = input_profile_key_index_map.find(key);
         if (it != input_profile_key_index_map.end()) {
             return it->second;
@@ -209,6 +230,7 @@ namespace recompinput {
     }
 
     void profiles::set_input_profile_for_player(int player_index, int profile_index, InputDevice device) {
+        std::lock_guard lock{ get_input_mutex() };
         switch (device) {
         case InputDevice::Controller:
             players_input_profile_indices[player_index].first = profile_index;
@@ -235,10 +257,12 @@ namespace recompinput {
     }
 
     void profiles::clear_player_assignments() {
+        std::lock_guard lock{ get_input_mutex() };
         players_assigned_devices.fill(InputDevice::COUNT);
     }
 
     void profiles::set_assigned_input_device_for_player(int player_index, InputDevice device) {
+        std::lock_guard lock{ get_input_mutex() };
         if (player_index >= 0 && player_index < max_num_players_supported) {
             players_assigned_devices[player_index] = device;
         }
@@ -261,6 +285,7 @@ namespace recompinput {
     }
 
     int profiles::add_controller(ControllerGUID guid, int profile_index) {
+        std::lock_guard lock{ get_input_mutex() };
         auto it = controller_hash_index_map.find(guid.hash);
         if (it != controller_hash_index_map.end()) {
             controllers[it->second].profile_index = profile_index;
@@ -320,14 +345,7 @@ namespace recompinput {
         guid.version = version;
         guid.crc16 = crc16;
 
-        // Compute the hash from the GUID.
-        XXH3_state_t state;
-        XXH3_64bits_reset(&state);
-        XXH3_64bits_update(&state, &guid.vendor, sizeof(guid.vendor));
-        XXH3_64bits_update(&state, &guid.product, sizeof(guid.product));
-        XXH3_64bits_update(&state, &guid.version, sizeof(guid.version));
-        XXH3_64bits_update(&state, &guid.crc16, sizeof(guid.crc16));
-        guid.hash = XXH3_64bits_digest(&state);
+        guid.recompute_hash();
 
         return guid;
     }
@@ -350,6 +368,29 @@ namespace recompinput {
         return profiles::get_controller_profile_index(controller_index);
     }
 
+    int profiles::get_controller_profile_index_for_menu(SDL_GameController *game_controller) {
+        if (game_controller == nullptr) {
+            return -1;
+        }
+
+        if (players::is_single_player_mode()) {
+            return profiles::get_sp_controller_profile_index();
+        }
+
+        for (size_t i = 0; i < players::get_configured_max_number_of_players(); i++) {
+            if (players::get_player_is_assigned(i) && players::get_player(i).controller == game_controller) {
+                int profile_index = profiles::get_input_profile_for_player(i, InputDevice::Controller);
+                if (profile_index >= 0) {
+                    return profile_index;
+                }
+                break;
+            }
+        }
+
+        int profile_index = profiles::get_controller_profile_index_from_sdl_controller(game_controller);
+        return profile_index >= 0 ? profile_index : profiles::get_sp_controller_profile_index();
+    }
+
     std::string profiles::get_mp_keyboard_profile_key(int player_index) {
         return keyboard_mp_profile_key + std::to_string(player_index);
     }
@@ -359,6 +400,7 @@ namespace recompinput {
     }
 
     void profiles::initialize_input_bindings() {
+        std::lock_guard lock{ get_input_mutex() };
         keyboard_sp_profile_index = profiles::add_input_profile(keyboard_sp_profile_key, keyboard_sp_profile_name, recompinput::InputDevice::Keyboard, false);
         controller_sp_profile_index = profiles::add_input_profile(controller_sp_profile_key, controller_sp_profile_name, recompinput::InputDevice::Controller, false);
 
@@ -376,6 +418,7 @@ namespace recompinput {
     }
 
     int profiles::get_or_create_mp_keyboard_profile_index(int player_index) {
+        std::lock_guard lock{ get_input_mutex() };
         int profile_index = get_mp_keyboard_profile_index(player_index);
         if (profile_index < 0) {
             profile_index = profiles::add_input_profile(
@@ -468,6 +511,7 @@ namespace recompinput {
     }
 
     bool profiles::save_controls_config(const std::filesystem::path& path) {
+        std::lock_guard lock{ get_input_mutex() };
         controls_config_path = path;
         int profile_count = profiles::get_input_profile_count();
         int controller_count = profiles::get_controller_count();
@@ -516,6 +560,7 @@ namespace recompinput {
     }
 
     bool profiles::save_controls_config() {
+        std::lock_guard lock{ get_input_mutex() };
         return !controls_config_path.empty() && profiles::save_controls_config(controls_config_path);
     }
 
@@ -580,6 +625,7 @@ namespace recompinput {
     }
 
     bool profiles::load_controls_config(const std::filesystem::path& path) {
+        std::lock_guard lock{ get_input_mutex() };
         controls_config_path = path;
         profiles::initialize_input_bindings();
         profiles::clear_player_assignments();

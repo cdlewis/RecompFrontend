@@ -31,6 +31,7 @@ static int get_or_create_controller_profile_index(ControllerGUID guid) {
 }
 
 void purge_deferred_controller_profiles() {
+    std::lock_guard lock{ get_input_mutex() };
     for (auto &guid_pair : deferred_controller_profiles) {
         int profile_index = get_or_create_controller_profile_index(guid_pair.second);
         profiles::add_controller(guid_pair.second, profile_index);
@@ -66,6 +67,7 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
             recompui::config::graphics::toggle_fullscreen();
         }
         if (binding::is_binding()) {
+            std::lock_guard lock{ get_input_mutex() };
             if (keyevent->keysym.scancode == SDL_Scancode::SDL_SCANCODE_ESCAPE) {
                 binding::stop_scanning();
             }
@@ -82,6 +84,7 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
     break;
     case SDL_EventType::SDL_CONTROLLERDEVICEADDED:
     {
+        std::lock_guard lock{ get_input_mutex() };
         SDL_ControllerDeviceEvent* controller_event = &event->cdevice;
         SDL_GameController* controller = SDL_GameControllerOpen(controller_event->which);
         printf("Controller added: %d\n", controller_event->which);
@@ -109,6 +112,7 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
     break;
     case SDL_EventType::SDL_CONTROLLERDEVICEREMOVED:
     {
+        std::lock_guard lock{ get_input_mutex() };
         SDL_ControllerDeviceEvent* controller_event = &event->cdevice;
         printf("Controller removed: %d\n", controller_event->which);
         recompinput::remove_controller_state(controller_event->which);
@@ -133,6 +137,10 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
     break;
     case SDL_EventType::SDL_CONTROLLERBUTTONDOWN:
         if (binding::is_binding() && binding::is_controller_being_bound(event->cbutton.which)) {
+            std::lock_guard lock{ get_input_mutex() };
+            if (!binding::is_binding() || !binding::is_controller_being_bound(event->cbutton.which)) {
+                break;
+            }
             // TODO: Needs the controller profile index.
             auto menuToggleBinding0 = profiles::get_input_binding(0, GameInput::TOGGLE_MENU, 0);
             auto menuToggleBinding1 = profiles::get_input_binding(0, GameInput::TOGGLE_MENU, 1);
@@ -163,6 +171,10 @@ bool sdl_event_filter(void* userdata, SDL_Event* event) {
         break;
     case SDL_EventType::SDL_CONTROLLERAXISMOTION:
         if (binding::is_controller_being_bound(event->caxis.which)) {
+            std::lock_guard lock{ get_input_mutex() };
+            if (!binding::is_controller_being_bound(event->caxis.which)) {
+                break;
+            }
             GameInput scanning_game_input = binding::get_scanning_game_input();
             if (scanning_game_input == GameInput::TOGGLE_MENU ||
                 scanning_game_input == GameInput::ACCEPT_MENU ||

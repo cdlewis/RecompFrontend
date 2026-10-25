@@ -54,7 +54,7 @@ class PlayerArray : public players_array {
 
 static struct {
     bool single_player_mode = true;
-    bool is_assigning = false;
+    std::atomic_bool is_assigning = false;
     size_t min_players = 1;
     size_t max_players = 4;
     size_t game_player_count = 1;
@@ -66,7 +66,7 @@ static struct {
         return temp ? temp_players : players;
     }
 
-    bool queue_close_player_assignment_modal = false;
+    std::atomic_bool queue_close_player_assignment_modal = false;
 } PlayerState;
 
 static std::atomic_size_t pending_game_player_count = 0;
@@ -95,6 +95,7 @@ bool players::is_single_player_mode() {
 }
 
 void players::set_single_player_mode(bool single_player) {
+    std::lock_guard lock{ get_input_mutex() };
     if (!single_player && single_player != PlayerState.single_player_mode) {
         purge_deferred_controller_profiles();
     }
@@ -111,6 +112,7 @@ void players::apply_pending_game_player_count() {
     if (player_count == 0) {
         return;
     }
+    std::lock_guard lock{ get_input_mutex() };
 
     if (player_count == 1) {
         PlayerState.game_player_count = 1;
@@ -133,16 +135,19 @@ void players::apply_pending_game_player_count() {
 }
 
 void players::set_min_number_of_players(size_t min_players) {
+    std::lock_guard lock{ get_input_mutex() };
     assert(min_players >= 1 && min_players <= PlayerState.max_players);
     PlayerState.min_players = min_players;
 }
 
 void players::set_max_number_of_players(size_t max_players) {
+    std::lock_guard lock{ get_input_mutex() };
     assert(max_players >= PlayerState.min_players && max_players <= recompinput::max_num_players_supported);
     PlayerState.max_players = max_players;
 }
 
 void players::set_player_count_range(size_t min_players, size_t max_players) {
+    std::lock_guard lock{ get_input_mutex() };
     assert(min_players >= 1 && max_players <= recompinput::max_num_players_supported && min_players <= max_players);
     PlayerState.min_players = min_players;
     PlayerState.max_players = max_players;
@@ -187,21 +192,31 @@ bool playerassignment::is_game_assignment_active() {
 }
 
 void playerassignment::start(void) {
+    std::lock_guard lock{ get_input_mutex() };
     PlayerState.is_assigning = true;
     PlayerState.temp_players = PlayerArray{};
 }
 
 void playerassignment::stop(void) {
+    std::lock_guard lock{ get_input_mutex() };
     PlayerState.is_assigning = false;
 }
 
 void playerassignment::stop_and_close_modal() {
+    std::lock_guard lock{ get_input_mutex() };
     playerassignment::stop();
     PlayerState.queue_close_player_assignment_modal = true;
 }
 
 void playerassignment::apply_player_assignment() {
+    std::lock_guard lock{ get_input_mutex() };
     stop();
+
+    const auto previous_players = PlayerState.players;
+    std::array<int, max_num_players_supported> previous_profiles{};
+    for (size_t i = 0; i < previous_players.get_count(); i++) {
+        previous_profiles[i] = profiles::get_input_profile_for_player(i, InputDevice::Controller);
+    }
 
     PlayerState.players = PlayerState.temp_players;
     PlayerState.game_assignment_active = false;
@@ -211,9 +226,18 @@ void playerassignment::apply_player_assignment() {
         if (player.controller != nullptr) {
             profiles::set_assigned_input_device_for_player(i, InputDevice::Controller);
             int cont_profile_index = profiles::get_controller_profile_index_from_sdl_controller(player.controller);
-            if (cont_profile_index >= 0) {
-                profiles::set_input_profile_for_player(i, cont_profile_index, InputDevice::Controller);
+            // Follow the same connected controller even when it moves to another player slot.
+            for (size_t previous_index = 0; previous_index < previous_players.get_count(); previous_index++) {
+                if (previous_players[previous_index].controller == player.controller &&
+                    previous_profiles[previous_index] >= 0) {
+                    cont_profile_index = previous_profiles[previous_index];
+                    break;
+                }
             }
+            if (cont_profile_index < 0) {
+                cont_profile_index = profiles::get_sp_controller_profile_index();
+            }
+            profiles::set_input_profile_for_player(i, cont_profile_index, InputDevice::Controller);
         } else {
             profiles::set_assigned_input_device_for_player(i, InputDevice::Keyboard);
             profiles::set_input_profile_for_player(i, profiles::get_or_create_mp_keyboard_profile_index(i),
@@ -228,11 +252,13 @@ void playerassignment::apply_player_assignment() {
 }
 
 void playerassignment::commit_player_assignment() {
+    std::lock_guard lock{ get_input_mutex() };
     apply_player_assignment();
     PlayerState.queue_close_player_assignment_modal = true;
 }
 
 void playerassignment::add_keyboard_player() {
+    std::lock_guard lock{ get_input_mutex() };
     if (PlayerState.temp_players.get_count() < players::get_assignment_max_number_of_players()) {
         PlayerState.temp_players.add_keyboard_player();
     }
@@ -272,6 +298,10 @@ std::chrono::steady_clock::duration playerassignment::get_player_time_since_last
 }
 
 void playerassignment::process_sdl_event(SDL_Event* event) {
+    if (!PlayerState.is_assigning.load() && !PlayerState.queue_close_player_assignment_modal.load()) {
+        return;
+    }
+    std::lock_guard lock{ get_input_mutex() };
     if (PlayerState.queue_close_player_assignment_modal) {
         recompui::AssignPlayersModal::close();
         PlayerState.queue_close_player_assignment_modal = false;
