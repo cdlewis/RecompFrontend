@@ -21,15 +21,16 @@
 
 namespace recompui {
     static void perform_file_dialog_operation(const std::function<void(bool, const std::filesystem::path&)>& callback) {
-        nfdnchar_t* native_path = nullptr;
-        nfdresult_t result = NFD_OpenDialogN(&native_path, nullptr, 0, nullptr);
+        const nfdu8filteritem_t filter = {"Nintendo 64 ROM files", "z64,n64,v64"};
+        nfdu8char_t* native_path = nullptr;
+        nfdresult_t result = NFD_OpenDialogU8(&native_path, &filter, 1, nullptr);
 
         bool success = (result == NFD_OKAY);
         std::filesystem::path path;
 
         if (success) {
-            path = std::filesystem::path{native_path};
-            NFD_FreePathN(native_path);
+            path = std::filesystem::path{reinterpret_cast<const char8_t*>(native_path)};
+            NFD_FreePathU8(native_path);
         }
 
         callback(success, path);
